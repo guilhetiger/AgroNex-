@@ -1,0 +1,65 @@
+═══════════════════════════════════════════════════════════════════════════════
+                    AGRONEX - GENERAR APK Y QR (RÁPIDO)
+═══════════════════════════════════════════════════════════════════════════════
+
+OPCIÓN MÁS RÁPIDA (SIN SERVIDOR):
+─────────────────────────────────
+
+Abre PowerShell en esta carpeta y ejecuta:
+
+    npm start
+
+Descarga "Expo Go" en tu teléfono (App Store / Google Play).
+Escanea el QR que aparece en la terminal.
+
+✅ Listo. Tienes la app funcionando en el teléfono en 2 minutos.
+
+═══════════════════════════════════════════════════════════════════════════════
+
+OPCIÓN CON QR DESCARGABLE (PARA COMPARTIR):
+────────────────────────────────────────────
+
+1. Ve a https://expo.dev y crea una cuenta GRATIS
+
+2. En PowerShell, ejecuta:
+   
+   eas login
+   
+   (Ingresa tu email y contraseña)
+
+3. Para Android (APK):
+   
+   eas build --platform android --profile preview
+   
+   → Te dará un QR para descargar el APK en cualquier Android
+
+4. Para iOS (TestFlight):
+   
+   eas build --platform ios --profile preview
+   
+   → Te dará un QR para instalar en cualquier iPhone (vía TestFlight)
+
+═══════════════════════════════════════════════════════════════════════════════
+
+SCRIPTS AUTOMÁTICOS:
+───────────────────
+
+Windows:  Ejecuta "build.bat" (doble clic)
+MacOS:    Ejecuta "npm run build-expo" 
+
+═══════════════════════════════════════════════════════════════════════════════
+
+PROBLEMAS FRECUENTES:
+────────────────────
+
+❌ "Not logged in"
+   → Ve a https://expo.dev, crea cuenta, y vuelve a:  eas login
+
+❌ "Permission denied" (en Mac)
+   → sudo chmod +x build.ps1
+
+❌ Error de compilación
+   → npx tsc --noEmit
+   → npm install
+
+═══════════════════════════════════════════════════════════════════════════════

@@ -1,0 +1,70 @@
+═══════════════════════════════════════════════════════════════════════════════
+                 COMO HACER LOGIN EN EXPO (PASO A PASO)
+═══════════════════════════════════════════════════════════════════════════════
+
+PASO 1: Crear Cuenta
+────────────────────
+1. Abre: https://expo.dev
+2. Click "Sign up" (Arriba a la derecha)
+3. Usa tu email: guilhebassolouveira@gmail.com
+4. Crea una contraseña
+5. Confirma el email
+
+═══════════════════════════════════════════════════════════════════════════════
+
+PASO 2: Login en PowerShell
+────────────────────────────
+Abre PowerShell en la carpeta AgroNex y ejecuta:
+
+    eas login
+
+Te pedirá:
+  Email or username: guilhebassolouveira@gmail.com  [Enter]
+  Password: ••••••••••••  [Enter]  (Escribe tu contraseña - no se verá)
+
+Si todo es correcto:
+  ✅ You are logged in.
+
+═══════════════════════════════════════════════════════════════════════════════
+
+PASO 3: Generar Build
+─────────────────────
+Una vez autenticado, ejecuta:
+
+  ANDROID (APK):
+  npm run build:android
+
+  iOS (TestFlight):
+  npm run build:ios
+
+  O ambos:
+  npm run build
+
+Espera a que termine (5-15 minutos).
+
+═══════════════════════════════════════════════════════════════════════════════
+
+PASO 4: Descargar/Instalar
+──────────────────────────
+1. Te mostrará un QR en la terminal
+2. Escanea con tu teléfono (cámara nativa)
+3. Se abrirá un link de descarga
+4. ¡Listo! La app estará instalada
+
+═══════════════════════════════════════════════════════════════════════════════
+
+PROBLEMAS:
+──────────
+❌ "Email not found"
+   → La cuenta no existe. Crea una en https://expo.dev
+
+❌ "Invalid password"  
+   → Contraseña incorrecta. Revisa en https://expo.dev/profile
+
+❌ "Network error"
+   → Revisa tu conexión a internet
+
+❌ "Permission denied"
+   → Intenta: npm install -g eas-cli (como Admin)
+
+═══════════════════════════════════════════════════════════════════════════════
