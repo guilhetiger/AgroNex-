@@ -5,7 +5,6 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './src/context/AuthContext';
 import { ThemeProvider } from './src/theme/ThemeProvider';
 import { LocalizationProvider } from './src/context/LocalizationContext';
-import { SyncProvider } from './src/context/SyncContext';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { useCachedResources } from './src/hooks/useCachedResources';
 import { queryClient } from './src/services/queryClient';
@@ -21,12 +20,10 @@ export default function App() {
         <ThemeProvider>
           <LocalizationProvider>
             <AuthProvider>
-              <SyncProvider>
-                <NavigationContainer>
-                  <AppNavigator />
-                </NavigationContainer>
-                <StatusBar style="light" />
-              </SyncProvider>
+              <NavigationContainer>
+                <AppNavigator />
+              </NavigationContainer>
+              <StatusBar style="light" />
             </AuthProvider>
           </LocalizationProvider>
         </ThemeProvider>
