@@ -1,9 +1,10 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ScrollView, StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { GlassCard } from '@components/ui/GlassCard';
 import { SectionHeader } from '@components/ui/SectionHeader';
+import { TabScreenScroll } from '@components/ui/TabScreenScroll';
 import { useTheme } from '@theme/ThemeProvider';
 import { useCurrentWeather, useFlightRecommendation } from '@hooks/useWeather';
 import { useFlights, useClients } from '@hooks/useData';
@@ -22,7 +23,7 @@ export function MapsScreen() {
   const totalMinutes = flights?.reduce((sum, flight) => sum + flight.duration, 0) || 0;
 
   return (
-    <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
+    <TabScreenScroll>
       <SectionHeader title="Mapas" subtitle="GPS, rutas y zonas atendidas" />
 
       <View style={[styles.mapPreview, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -79,7 +80,7 @@ export function MapsScreen() {
           {recommendation?.reason || 'No hay recomendaciones disponibles.'}
         </Text>
       </GlassCard>
-    </ScrollView>
+    </TabScreenScroll>
   );
 
   function StatCard({ icon, label, value }: { icon: keyof typeof MaterialIcons.glyphMap; label: string; value: string }) {
@@ -103,17 +104,15 @@ export function MapsScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1 },
-  content: { flexGrow: 1, padding: 20, paddingBottom: 168, gap: 14 },
-  mapPreview: { minHeight: 260, borderWidth: 1, borderRadius: 8, padding: 18, overflow: 'hidden' },
-  mapGrid: { flex: 1, minHeight: 150, borderWidth: 1, borderRadius: 8, position: 'relative', marginBottom: 16 },
-  zone: { position: 'absolute', width: 180, height: 90, borderWidth: 2, borderRadius: 8, left: 34, top: 28, transform: [{ rotate: '-8deg' }] },
-  route: { position: 'absolute', width: 190, height: 4, left: 55, top: 82, transform: [{ rotate: '16deg' }], borderRadius: 8 },
-  pin: { position: 'absolute', width: 18, height: 18, borderRadius: 9, left: 128, top: 70 },
+  mapPreview: { minHeight: 260, borderWidth: 1, borderRadius: 8, padding: 18, overflow: 'hidden', width: '100%' },
+  mapGrid: { flex: 1, minHeight: 150, borderWidth: 1, borderRadius: 8, position: 'relative', marginBottom: 16, overflow: 'hidden' },
+  zone: { position: 'absolute', width: '55%', height: '55%', borderWidth: 2, borderRadius: 8, left: '12%', top: '16%', transform: [{ rotate: '-8deg' }] },
+  route: { position: 'absolute', width: '58%', height: 4, left: '20%', top: '52%', transform: [{ rotate: '16deg' }], borderRadius: 8 },
+  pin: { position: 'absolute', width: 18, height: 18, borderRadius: 9, right: '22%', top: '44%' },
   previewTitle: { fontSize: 20, fontWeight: '900' },
   previewText: { marginTop: 6, fontSize: 13, lineHeight: 20, fontWeight: '700' },
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  statCard: { width: '47%', minHeight: 120, gap: 8 },
+  statCard: { flexGrow: 1, flexBasis: '45%', minWidth: 0, minHeight: 120, gap: 8 },
   statValue: { fontSize: 24, fontWeight: '900' },
   statLabel: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase' },
   card: { gap: 12 },

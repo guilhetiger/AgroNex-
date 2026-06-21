@@ -12,9 +12,11 @@ import { useTheme } from '@theme/ThemeProvider';
 import { useCreateFlight, useFlights, useClients } from '@hooks/useData';
 import type { AppStackParamList } from '@navigation/types';
 import { parseDecimalInput } from '@utils/number';
+import { useTabBarPadding } from '@hooks/useTabBarPadding';
 
 export function FlightsScreen() {
   const { colors } = useTheme();
+  const tabBarPadding = useTabBarPadding();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const { data: flights, isLoading: flightsLoading, error: flightsError, refetch: refetchFlights } = useFlights();
   const { data: clients } = useClients();
@@ -144,7 +146,7 @@ export function FlightsScreen() {
       <FlatList
         data={flights || []}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarPadding }]}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetchFlights} tintColor={colors.primary} />}
         ListHeaderComponent={
@@ -287,7 +289,6 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     padding: 20,
-    paddingBottom: 168,
     gap: 14,
   },
   summaryGrid: {

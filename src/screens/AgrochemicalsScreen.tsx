@@ -10,9 +10,11 @@ import { useTheme } from '@theme/ThemeProvider';
 import { useAgrochemicals, useCreateAgrochemical } from '@hooks/useData';
 import { useLocalization } from '@context/LocalizationContext';
 import { parseDecimalInput } from '@utils/number';
+import { useTabBarPadding } from '@hooks/useTabBarPadding';
 
 export function AgrochemicalsScreen() {
   const { colors } = useTheme();
+  const tabBarPadding = useTabBarPadding();
   const { formatDate, formatCurrency } = useLocalization();
   const { data: chemicals, isLoading, refetch } = useAgrochemicals();
   const createChemical = useCreateAgrochemical();
@@ -57,7 +59,7 @@ export function AgrochemicalsScreen() {
       <FlatList
         data={chemicals || []}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarPadding }]}
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
           <View style={{ gap: 14 }}>
@@ -142,7 +144,7 @@ export function AgrochemicalsScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  content: { flexGrow: 1, padding: 20, paddingBottom: 168, gap: 14 },
+  content: { flexGrow: 1, padding: 20, gap: 14 },
   summaryRow: { flexDirection: 'row', gap: 12 },
   summaryCard: { flex: 1 },
   summaryLabel: { fontSize: 12, fontWeight: '900', textTransform: 'uppercase' },

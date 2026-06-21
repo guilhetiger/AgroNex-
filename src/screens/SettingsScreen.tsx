@@ -8,6 +8,7 @@ import { useTheme } from '@theme/ThemeProvider';
 import { useLocalization } from '@context/LocalizationContext';
 import { useSync } from '@context/SyncContext';
 import { CountryOption, CurrencyOption, LanguageOption } from '../types/index';
+import { useTabBarPadding } from '@hooks/useTabBarPadding';
 
 const countries: Array<{ value: CountryOption; label: string; helper: string }> = [
   { value: 'BO', label: 'Bolivia', helper: 'BOB · Español' },
@@ -26,6 +27,7 @@ const languages: Array<{ value: LanguageOption; label: string }> = [
 
 export function SettingsScreen() {
   const { colors, mode, setThemeMode } = useTheme();
+  const tabBarPadding = useTabBarPadding();
   const { signOut, hasRole } = useAuth();
   const isAdmin = hasRole(['admin']);
   const { setLanguage, setCurrency, setCountry, language, currency, country, t, formatDate } = useLocalization();
@@ -41,7 +43,7 @@ export function SettingsScreen() {
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: tabBarPadding }]}>
         <SectionHeader title={t('settings')} subtitle="Centro de control" />
 
         <View style={[styles.hero, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -208,7 +210,6 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     padding: 20,
-    paddingBottom: 168,
     gap: 14,
   },
   hero: {

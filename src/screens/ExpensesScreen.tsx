@@ -1,8 +1,8 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LineChart } from 'react-native-chart-kit';
+import { ResponsiveLineChart } from '@components/ui/ResponsiveLineChart';
 import { FormTextInput } from '@components/ui/FormTextInput';
 import { GlassCard } from '@components/ui/GlassCard';
 import { QuickModuleBackBar } from '@components/ui/QuickModuleBackBar';
@@ -11,12 +11,13 @@ import { useTheme } from '@theme/ThemeProvider';
 import { useCreateExpense, useExpenses } from '@hooks/useData';
 import { useLocalization } from '@context/LocalizationContext';
 import { parseDecimalInput } from '@utils/number';
+import { useTabBarPadding } from '@hooks/useTabBarPadding';
 
 const categories = ['gasolina', 'aceite', 'mantenimiento', 'baterías', 'alimentación', 'hospedaje', 'salarios', 'transporte', 'repuestos', 'impuestos', 'otros'];
 
 export function ExpensesScreen() {
   const { colors } = useTheme();
-  const { width } = useWindowDimensions();
+  const tabBarPadding = useTabBarPadding();
   const { formatCurrency, convertFromUsd, convertToUsd, currency } = useLocalization();
   const { data: expenses, isLoading } = useExpenses();
   const createExpense = useCreateExpense();
@@ -59,7 +60,7 @@ export function ExpensesScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.content, { paddingBottom: tabBarPadding }]} keyboardShouldPersistTaps="handled">
       <QuickModuleBackBar />
       <SectionHeader title="Gastos" subtitle="Flujo de caja y rentabilidad" />
       <GlassCard style={styles.heroCard}>
@@ -73,9 +74,8 @@ export function ExpensesScreen() {
 
       <GlassCard>
         <Text style={[styles.cardTitle, { color: colors.text }]}>Tendencia mensual</Text>
-        <LineChart
+        <ResponsiveLineChart
           data={chartData}
-          width={Math.max(280, Math.min(width - 56, 520))}
           height={220}
           chartConfig={{
             backgroundGradientFrom: colors.surface,
@@ -86,7 +86,6 @@ export function ExpensesScreen() {
             propsForDots: { r: '5', fill: colors.primary },
           }}
           bezier
-          style={{ borderRadius: 8 }}
         />
       </GlassCard>
 
@@ -141,7 +140,7 @@ export function ExpensesScreen() {
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  content: { flexGrow: 1, padding: 20, paddingBottom: 168, gap: 14 },
+  content: { flexGrow: 1, padding: 20, gap: 14 },
   heroCard: { gap: 14 },
   label: { fontSize: 12, fontWeight: '900', textTransform: 'uppercase' },
   total: { fontSize: 36, fontWeight: '900' },

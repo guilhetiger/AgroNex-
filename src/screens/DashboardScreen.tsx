@@ -1,9 +1,10 @@
-import { ScrollView, View, ActivityIndicator, Text, TouchableOpacity, useWindowDimensions } from 'react-native';
+import { View, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { LineChart } from 'react-native-chart-kit';
 import { GlassCard } from '@components/ui/GlassCard';
 import { MetricBadge } from '@components/ui/MetricBadge';
+import { ResponsiveLineChart } from '@components/ui/ResponsiveLineChart';
 import { SectionHeader } from '@components/ui/SectionHeader';
+import { TabScreenScroll } from '@components/ui/TabScreenScroll';
 import { AiDashboardWidgets } from '@components/ai/AiDashboardWidgets';
 import { useTheme } from '@theme/ThemeProvider';
 import { useClients, useFlights, useFarms, useExpenses } from '@hooks/useData';
@@ -19,7 +20,6 @@ type QuickActionRoute = 'Reports' | 'Agrochemicals' | 'Expenses' | 'AgroChat' | 
 
 export function DashboardScreen() {
   const { colors, radii } = useTheme();
-  const { width } = useWindowDimensions();
   const { formatCurrency, convertFromUsd, t, country, formatDate } = useLocalization();
   const { isSyncing, lastSyncedAt } = useSync();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
@@ -37,7 +37,6 @@ export function DashboardScreen() {
   const estimatedRevenue = getRevenueUsd(totalFlightHa);
   const estimatedCosts = getExpensesUsd(expenses || []);
   const netProfit = getProfitUsd(estimatedRevenue, estimatedCosts);
-  const chartWidth = Math.max(280, Math.min(width - 48, 720));
 
   const aiInsights = useAI(null, flights || [], expenses || [], country);
 
@@ -60,7 +59,7 @@ export function DashboardScreen() {
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ flexGrow: 1, padding: 24, paddingBottom: 168, gap: 18 }}>
+    <TabScreenScroll horizontalPadding={24} gap={18}>
       <Animated.View entering={FadeInDown.duration(420).delay(40)}>
         <SectionHeader title={t('dashboard')} subtitle="Visión general de cada operación" />
       </Animated.View>
@@ -89,9 +88,8 @@ export function DashboardScreen() {
       <Animated.View entering={FadeInDown.duration(420).delay(120)}>
         <GlassCard>
           <Text style={{ color: colors.textSecondary, marginBottom: 16, fontWeight: '800' }}>Tendencia de facturación</Text>
-          <LineChart
+          <ResponsiveLineChart
             data={chartData}
-            width={chartWidth}
             height={210}
             chartConfig={{
               backgroundGradientFrom: colors.surfaceMuted,
@@ -172,8 +170,8 @@ export function DashboardScreen() {
               }}
             >
               <Text style={{ color: colors.text, fontWeight: '700', marginBottom: 8, fontSize: 14 }}>Precio recomendado</Text>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+                <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={{ color: colors.textSecondary, fontSize: 12 }}>Por hectárea</Text>
                   <Text style={{ color: colors.primary, fontWeight: '800', fontSize: 20, marginTop: 4 }}>
                     {formatCurrency(aiInsights.price?.suggestedPricePerHectare || 0)}
@@ -191,6 +189,7 @@ export function DashboardScreen() {
                     paddingHorizontal: 12,
                     paddingVertical: 8,
                     borderRadius: radii.md,
+                    flexShrink: 0,
                   }}
                 >
                   <Text style={{ color: colors.primary, fontWeight: '700' }}>+{aiInsights.price?.margin || 0}%</Text>
@@ -231,7 +230,7 @@ export function DashboardScreen() {
                 }}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <View>
+                  <View style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
                     <Text style={{ fontSize: 12, marginBottom: 4 }}>{item.emoji}</Text>
                     <Text style={{ color: colors.text, fontWeight: '700', fontSize: 14 }}>{item.title}</Text>
                     <Text style={{ color: colors.textSecondary, marginTop: 4, fontSize: 12 }}>Módulo completo</Text>
@@ -250,7 +249,9 @@ export function DashboardScreen() {
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <View
               style={{
-                minWidth: 160,
+                flexGrow: 1,
+                flexBasis: '45%',
+                minWidth: 0,
                 backgroundColor: colors.surfaceMuted,
                 borderRadius: radii.md,
                 padding: 14,
@@ -263,7 +264,9 @@ export function DashboardScreen() {
             </View>
             <View
               style={{
-                minWidth: 160,
+                flexGrow: 1,
+                flexBasis: '45%',
+                minWidth: 0,
                 backgroundColor: colors.surfaceMuted,
                 borderRadius: radii.md,
                 padding: 14,
@@ -276,7 +279,9 @@ export function DashboardScreen() {
             </View>
             <View
               style={{
-                minWidth: 160,
+                flexGrow: 1,
+                flexBasis: '45%',
+                minWidth: 0,
                 backgroundColor: colors.surfaceMuted,
                 borderRadius: radii.md,
                 padding: 14,
@@ -290,6 +295,6 @@ export function DashboardScreen() {
           </View>
         </GlassCard>
       </Animated.View>
-    </ScrollView>
+    </TabScreenScroll>
   );
 }

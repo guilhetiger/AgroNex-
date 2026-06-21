@@ -12,9 +12,11 @@ import { useClients, useCreateClient, useDeleteClient, useExpenses, useFlights }
 import type { AppStackParamList } from '@navigation/types';
 import { getClientScore } from '@services/aiService';
 import { parseDecimalInput } from '@utils/number';
+import { useTabBarPadding } from '@hooks/useTabBarPadding';
 
 export function ClientsScreen() {
   const { colors } = useTheme();
+  const tabBarPadding = useTabBarPadding();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const { data: clients, isLoading, error, refetch } = useClients();
   const { data: flights } = useFlights();
@@ -97,7 +99,7 @@ export function ClientsScreen() {
       <FlatList
         data={clients || []}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: tabBarPadding }]}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.primary} />}
         ListHeaderComponent={
@@ -241,7 +243,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     gap: 14,
     padding: 20,
-    paddingBottom: 168,
   },
   summaryPanel: {
     borderWidth: 1,

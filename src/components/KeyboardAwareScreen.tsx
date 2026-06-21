@@ -11,15 +11,23 @@ import {
 } from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 import { useTheme } from '@theme/ThemeProvider';
+import { useTabBarPadding } from '@hooks/useTabBarPadding';
 
 type Props = {
   children: ReactNode;
   contentContainerStyle?: StyleProp<ViewStyle>;
   edges?: Edge[];
+  withTabBarPadding?: boolean;
 };
 
-export function KeyboardAwareScreen({ children, contentContainerStyle, edges = ['top', 'bottom'] }: Props) {
+export function KeyboardAwareScreen({
+  children,
+  contentContainerStyle,
+  edges = ['top', 'bottom'],
+  withTabBarPadding = false,
+}: Props) {
   const { colors } = useTheme();
+  const tabBarPadding = useTabBarPadding();
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]} edges={edges}>
@@ -31,7 +39,11 @@ export function KeyboardAwareScreen({ children, contentContainerStyle, edges = [
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
           <ScrollView
             keyboardShouldPersistTaps="handled"
-            contentContainerStyle={[styles.content, contentContainerStyle]}
+            contentContainerStyle={[
+              styles.content,
+              withTabBarPadding ? { paddingBottom: tabBarPadding } : null,
+              contentContainerStyle,
+            ]}
             showsVerticalScrollIndicator={false}
           >
             {children}
