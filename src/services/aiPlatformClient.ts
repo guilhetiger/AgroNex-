@@ -11,11 +11,10 @@ import type {
   AiReport,
   AiReportType
 } from "@services/aiPlatformTypes";
-
-const API_BASE_URL = (process.env.EXPO_PUBLIC_AI_API_URL || "").replace(/\/+$/, "");
+import { getAiApiBaseUrl, isAiApiConfigured } from "@utils/aiApiUrl";
 
 function assertApiUrl() {
-  if (!API_BASE_URL) {
+  if (!isAiApiConfigured()) {
     throw new Error("Configura EXPO_PUBLIC_AI_API_URL para usar la plataforma AI.");
   }
 }
@@ -30,14 +29,23 @@ async function getAccessToken() {
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   assertApiUrl();
+  const apiBaseUrl = getAiApiBaseUrl();
   const accessToken = await getAccessToken();
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    headers: {
-      ...(init.headers || {}),
-      Authorization: `Bearer ${accessToken}`
-    }
-  });
+
+  let response: Response;
+  try {
+    response = await fetch(`${apiBaseUrl}${path}`, {
+      ...init,
+      headers: {
+        ...(init.headers || {}),
+        Authorization: `Bearer ${accessToken}`
+      }
+    });
+  } catch {
+    throw new Error(
+      `No se pudo conectar con ${apiBaseUrl}. Verifica que el backend este activo (npm run dev en apps/agronex-ai-api) y que la URL sea accesible desde el dispositivo.`
+    );
+  }
 
   if (!response.ok) {
     const payload = await response.json().catch(() => null);
@@ -45,6 +53,33 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 
   return (await response.json()) as T;
+}
+
+export async function checkAiApiHealth(): Promise<{ ok: boolean; url: string; error?: string }> {
+  const url = getAiApiBaseUrl();
+  if (!url) {
+    return { ok: false, url: "", error: "missing_url" };
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const response = await fetch(`${url}/api/health`, { signal: controller.signal });
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      return { ok: false, url, error: `health_${response.status}` };
+    }
+
+    const payload = (await response.json().catch(() => null)) as { ok?: boolean } | null;
+    if (!payload?.ok) {
+      return { ok: false, url, error: "invalid_health" };
+    }
+
+    return { ok: true, url };
+  } catch {
+    return { ok: false, url, error: "network" };
+  }
 }
 
 export const aiPlatformClient = {
@@ -87,9 +122,10 @@ export const aiPlatformClient = {
 
   downloadReportPdf: async (reportId: string, filename = "agronex-report.pdf") => {
     assertApiUrl();
+    const apiBaseUrl = getAiApiBaseUrl();
     const token = await getAccessToken();
     const targetPath = `${FileSystem.cacheDirectory}${filename}`;
-    const result = await FileSystem.downloadAsync(`${API_BASE_URL}/api/ai/reports/${reportId}/pdf`, targetPath, {
+    const result = await FileSystem.downloadAsync(`${apiBaseUrl}/api/ai/reports/${reportId}/pdf`, targetPath, {
       headers: { Authorization: `Bearer ${token}` }
     });
 
@@ -106,11 +142,12 @@ export const aiPlatformClient = {
 
   uploadExpenseImage: async (uri: string, mimeType = "image/jpeg", name = "expense.jpg") => {
     assertApiUrl();
+    const apiBaseUrl = getAiApiBaseUrl();
     const token = await getAccessToken();
     const formData = new FormData();
     formData.append("image", { uri, name, type: mimeType } as unknown as Blob);
 
-    const response = await fetch(`${API_BASE_URL}/api/ai/ocr`, {
+    const response = await fetch(`${apiBaseUrl}/api/ai/ocr`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
       body: formData

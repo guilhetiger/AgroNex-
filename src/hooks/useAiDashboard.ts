@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { aiPlatformClient } from "@services/aiPlatformClient";
+import { isAiApiConfigured } from "@utils/aiApiUrl";
 
 export const aiDashboardKey = ["ai-dashboard"] as const;
 
@@ -10,7 +11,8 @@ export function useAiDashboard() {
     queryKey: aiDashboardKey,
     queryFn: () => aiPlatformClient.getDashboard(),
     staleTime: 1000 * 60 * 2,
-    retry: 1
+    retry: 1,
+    enabled: isAiApiConfigured(),
   });
 
   const refreshAnomalies = useMutation({

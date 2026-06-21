@@ -3,20 +3,61 @@ import { useTheme } from '@theme/ThemeProvider';
 import { GlassCard } from '@components/ui/GlassCard';
 import { SectionHeader } from '@components/ui/SectionHeader';
 import { useAiDashboard } from '@hooks/useAiDashboard';
+import { getAiApiConfigHint, isAiApiConfigured } from '@utils/aiApiUrl';
 import { AiAlertCard } from './AiAlertCard';
 
 function WidgetBox({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <View style={{ minWidth: '45%', flexGrow: 1 }}>
-      <Text style={{ color: '#94A3B8', fontSize: 11, fontWeight: '800' }}>{label}</Text>
-      <Text style={{ color, fontWeight: '900', fontSize: 20, marginTop: 4 }}>{value}</Text>
+    <View style={{ minWidth: 0, flexGrow: 1, flexBasis: '45%', maxWidth: '100%' }}>
+      <Text style={{ color: '#94A3B8', fontSize: 11, fontWeight: '800' }} numberOfLines={2}>
+        {label}
+      </Text>
+      <Text style={{ color, fontWeight: '900', fontSize: 20, marginTop: 4 }} numberOfLines={1} adjustsFontSizeToFit>
+        {value}
+      </Text>
     </View>
+  );
+}
+
+function AiUnavailableCard({
+  title,
+  detail,
+  onRetry,
+  isRetrying,
+}: {
+  title: string;
+  detail: string;
+  onRetry?: () => void;
+  isRetrying?: boolean;
+}) {
+  const { colors } = useTheme();
+
+  return (
+    <GlassCard>
+      <Text style={{ color: colors.error, fontWeight: '800' }}>{title}</Text>
+      <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 6, lineHeight: 18 }}>{detail}</Text>
+      {onRetry ? (
+        <TouchableOpacity
+          onPress={onRetry}
+          disabled={isRetrying}
+          style={{ alignSelf: 'flex-start', marginTop: 10, paddingVertical: 6 }}
+        >
+          <Text style={{ color: colors.primary, fontWeight: '800' }}>
+            {isRetrying ? 'Comprobando...' : 'Reintentar conexion'}
+          </Text>
+        </TouchableOpacity>
+      ) : null}
+    </GlassCard>
   );
 }
 
 export function AiDashboardWidgets() {
   const { colors } = useTheme();
   const dashboard = useAiDashboard();
+
+  if (!isAiApiConfigured()) {
+    return <AiUnavailableCard title="Plataforma AI no configurada" detail={getAiApiConfigHint()} />;
+  }
 
   if (dashboard.isLoading) {
     return (
@@ -28,13 +69,23 @@ export function AiDashboardWidgets() {
   }
 
   if (dashboard.isError || !dashboard.data) {
+    const errorMessage = dashboard.error instanceof Error ? dashboard.error.message : '';
+    const isAuthError = /sesion|token|401/i.test(errorMessage);
+    const isNetworkError = /conectar|network|fetch/i.test(errorMessage);
+
+    const detail = isAuthError
+      ? 'Tu sesion expiro o no es valida. Cierra sesion e inicia de nuevo.'
+      : isNetworkError
+        ? `${getAiApiConfigHint()} Detalle: ${errorMessage}`
+        : errorMessage || getAiApiConfigHint();
+
     return (
-      <GlassCard>
-        <Text style={{ color: colors.error, fontWeight: '800' }}>Plataforma AI no disponible</Text>
-        <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 6 }}>
-          Configura EXPO_PUBLIC_AI_API_URL y ejecuta el backend Next.js.
-        </Text>
-      </GlassCard>
+      <AiUnavailableCard
+        title="Plataforma AI no disponible"
+        detail={detail}
+        onRetry={() => dashboard.refetch()}
+        isRetrying={dashboard.isFetching}
+      />
     );
   }
 
