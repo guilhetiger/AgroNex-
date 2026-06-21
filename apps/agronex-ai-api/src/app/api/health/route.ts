@@ -7,6 +7,3 @@ export async function GET() {
     timestamp: new Date().toISOString()
   });
 }
-export async function GET() {
-  return Response.json({ ok: true, service: 'agronex-ai-api', timestamp: new Date().toISOString() });
-}
