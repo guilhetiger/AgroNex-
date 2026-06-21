@@ -1,15 +1,13 @@
 import * as WebBrowser from 'expo-web-browser';
-import * as AuthSession from 'expo-auth-session';
 import type { Session } from '@supabase/supabase-js';
+import { handleAuthCallbackFromUrl } from './authCallback';
+import { getOAuthRedirectUri } from './authRedirect';
 import { supabase } from './supabaseClient';
 
 // Initialize web browser
 WebBrowser.maybeCompleteAuthSession();
 
-const redirectUrl = AuthSession.makeRedirectUri({
-  scheme: 'agronex',
-  path: 'auth-callback',
-});
+const redirectUrl = getOAuthRedirectUri();
 
 export type GoogleAuthResponse = {
   session: Session;
@@ -20,20 +18,6 @@ export type GoogleAuthResponse = {
     picture?: string;
   };
 };
-
-function getCallbackParams(url: string) {
-  const queryString = url.includes('?') ? url.split('?')[1]?.split('#')[0] : '';
-  const fragmentString = url.includes('#') ? url.split('#')[1] : '';
-  const params = new URLSearchParams([queryString, fragmentString].filter(Boolean).join('&'));
-
-  return {
-    code: params.get('code'),
-    accessToken: params.get('access_token'),
-    refreshToken: params.get('refresh_token'),
-    error: params.get('error'),
-    errorDescription: params.get('error_description'),
-  };
-}
 
 /**
  * Request Google Sign In through Supabase OAuth.
@@ -64,25 +48,28 @@ export async function requestGoogleSignIn(): Promise<GoogleAuthResponse | null> 
       return null;
     }
 
-    const callback = getCallbackParams(result.url);
-    if (callback.error) {
-      throw new Error(callback.errorDescription || callback.error);
-    }
-
-    const sessionResult = callback.code
-      ? await supabase.auth.exchangeCodeForSession(callback.code)
-      : callback.accessToken && callback.refreshToken
-        ? await supabase.auth.setSession({
-            access_token: callback.accessToken,
-            refresh_token: callback.refreshToken,
-          })
-        : await supabase.auth.getSession();
-
-    if (sessionResult.error) throw sessionResult.error;
-
-    const session = sessionResult.data.session;
+    const session = await handleAuthCallbackFromUrl(result.url);
     if (!session?.user) {
-      throw new Error('Google no devolvió una sesión válida de Supabase.');
+      const fallback = await supabase.auth.getSession();
+      if (fallback.error) throw fallback.error;
+      if (!fallback.data.session?.user) {
+        throw new Error('Google no devolvió una sesión válida de Supabase.');
+      }
+      return {
+        session: fallback.data.session,
+        redirectUri: redirectUrl,
+        user: {
+          email: fallback.data.session.user.email || '',
+          name:
+            (fallback.data.session.user.user_metadata as any)?.full_name ||
+            (fallback.data.session.user.user_metadata as any)?.name ||
+            fallback.data.session.user.email ||
+            'Agro Manager',
+          picture:
+            (fallback.data.session.user.user_metadata as any)?.avatar_url ||
+            (fallback.data.session.user.user_metadata as any)?.picture,
+        },
+      };
     }
 
     return {

@@ -1,7 +1,11 @@
 import React, { createContext, useCallback, useEffect, useMemo, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Linking from 'expo-linking';
+import { Platform } from 'react-native';
 import { hasSupabaseConfig, supabase } from '@services/supabaseClient';
 import { authStorage } from '@services/storage';
+import { handleAuthCallbackFromUrl } from '@services/authCallback';
+import { getOAuthRedirectUri } from '@services/authRedirect';
 import { activateMonthlySubscription, getAccessState, getFallbackAccessState, type AccessState } from '@services/subscriptionService';
 import { auditService } from '@services/auditService';
 import { queryClient } from '@services/queryClient';
@@ -151,6 +155,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setAccess = useAuthStore((state) => state.setAccess);
   const resetAuthState = useAuthStore((state) => state.resetAuthState);
   const authReadyRef = useRef(false);
+  const processedAuthUrlsRef = useRef(new Set<string>());
+
+  const processAuthCallbackUrl = useCallback(async (url: string | null) => {
+    if (!url || !hasSupabaseConfig || processedAuthUrlsRef.current.has(url)) {
+      return;
+    }
+
+    processedAuthUrlsRef.current.add(url);
+
+    try {
+      const session = await handleAuthCallbackFromUrl(url);
+      if (!session?.user) {
+        return;
+      }
+
+      const payload = createUserPayload(session.user);
+      setAuthState({ user: payload, session });
+      await authStorage.saveUser(payload);
+      await auditService.record({
+        user_id: payload.id,
+        email: payload.email,
+        role: payload.role,
+        action: 'login',
+        details: 'Sesión creada desde enlace de confirmación o recuperación',
+      });
+    } catch (error) {
+      console.error('Error procesando enlace de autenticación:', error);
+    }
+  }, [setAuthState]);
 
   const resetLocalAuthState = useCallback(async () => {
     await authStorage.clear();
@@ -258,6 +291,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [hydrateFromSession, resetLocalAuthState, setAuthState, setLoading]);
 
   useEffect(() => {
+    if (!hasSupabaseConfig || Platform.OS === 'web') {
+      return;
+    }
+
+    void Linking.getInitialURL().then((url) => processAuthCallbackUrl(url));
+
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      void processAuthCallbackUrl(url);
+    });
+
+    return () => subscription.remove();
+  }, [processAuthCallbackUrl]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function loadAccess() {
@@ -320,11 +367,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error('El servidor no está configurado. Por favor contacta al administrador.');
     }
 
+    const redirectTo = getOAuthRedirectUri();
     const { data, error } = await supabase.auth.signUp({
       email: normalizedEmail,
       password,
       options: {
-        emailRedirectTo: 'agronex://auth-callback',
+        emailRedirectTo: redirectTo,
         data: { full_name: name.trim() },
       },
     });
@@ -399,7 +447,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail);
+    const redirectTo = getOAuthRedirectUri();
+    const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+      redirectTo,
+    });
     if (error) throw error;
   }, []);
 

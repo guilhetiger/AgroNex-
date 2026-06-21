@@ -1,5 +1,6 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import { saveOfflineRecord, initDatabase } from './localData';
 import { sessionStorage } from './sessionStorage';
 import { Agrochemical, Client, Database, Expense, Flight } from '../types';
@@ -23,7 +24,7 @@ export const supabase = createSupabaseClient<Database>(
       storage: sessionStorage,
       autoRefreshToken: true,
       persistSession: true,
-      detectSessionInUrl: false,
+      detectSessionInUrl: Platform.OS === 'web',
     },
   },
 );

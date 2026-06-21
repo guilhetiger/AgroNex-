@@ -5,17 +5,28 @@ const googleMapsAndroidApiKey = env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY || e
 module.exports = ({ config }) => ({
   ...config,
   version: '1.0.0',
-  ...(isIosBuild
-    ? {
-        scheme: 'agronex',
-        ios: {
-          bundleIdentifier: 'com.agronex.app',
+  scheme: 'agronex',
+  ios: {
+    bundleIdentifier: 'com.agronex.app',
+    ...(isIosBuild
+      ? {
           infoPlist: {
             ITSAppUsesNonExemptEncryption: false,
           },
-        },
-      }
-    : {}),
+        }
+      : {}),
+  },
+  android: {
+    package: 'com.agronex.app',
+    intentFilters: [
+      {
+        action: 'VIEW',
+        autoVerify: false,
+        data: [{ scheme: 'agronex' }],
+        category: ['BROWSABLE', 'DEFAULT'],
+      },
+    ],
+  },
   assetBundlePatterns: ['**/*'],
   jsEngine: 'hermes',
   updates: {
