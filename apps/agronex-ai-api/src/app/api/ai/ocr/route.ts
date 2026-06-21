@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getOpenAIClient } from "@/lib/openai/client";
+import { GeminiQuotaError, generateTextWithImage } from "@/lib/gemini/client";
 import { OCR_EXTRACTION_PROMPT } from "@/lib/ai/prompts";
 import { verifyRequest } from "@/lib/auth/verifyRequest";
 
@@ -46,23 +46,15 @@ export async function POST(request: Request) {
       const mime = file.type || "image/jpeg";
       const base64 = bytes.toString("base64");
 
-      const openai = getOpenAIClient();
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+      const completion = await generateTextWithImage({
+        systemInstruction: OCR_EXTRACTION_PROMPT,
         temperature: 0,
-        messages: [
-          { role: "system", content: OCR_EXTRACTION_PROMPT },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: "Extrae los campos del comprobante." },
-              { type: "image_url", image_url: { url: `data:${mime};base64,${base64}` } }
-            ]
-          }
-        ]
+        text: "Extrae los campos del comprobante.",
+        imageBase64: base64,
+        mimeType: mime
       });
 
-      const extracted = parseOcrJson(completion.choices[0]?.message?.content ?? "{}");
+      const extracted = parseOcrJson(completion.text || "{}");
       const { data: expense, error: expenseError } = await supabase
         .from("expenses")
         .insert({
@@ -108,6 +100,12 @@ export async function POST(request: Request) {
     }
   } catch (error) {
     if (error instanceof Response) return error;
+    if (error instanceof GeminiQuotaError) {
+      return Response.json({ error: error.message }, { status: 503 });
+    }
+    if (error instanceof Error && error.message === "Missing GEMINI_API_KEY") {
+      return Response.json({ error: "Missing GEMINI_API_KEY. Configura la variable de entorno del servidor." }, { status: 500 });
+    }
     if (error instanceof z.ZodError) {
       return Response.json({ error: "OCR no pudo extraer campos validos.", details: error.flatten() }, { status: 422 });
     }

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getOpenAIClient } from "@/lib/openai/client";
+import { GeminiQuotaError, generateText } from "@/lib/gemini/client";
 import { verifyRequest } from "@/lib/auth/verifyRequest";
 import { fetchAiAnalyticsContext } from "@/lib/ai/context";
 import { REPORT_SUMMARY_PROMPT } from "@/lib/ai/prompts";
@@ -40,17 +40,13 @@ export async function POST(request: Request) {
     const metrics = buildReportMetrics(reportType, context);
     const title = reportTitle(reportType);
 
-    const openai = getOpenAIClient();
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+    const completion = await generateText({
+      systemInstruction: REPORT_SUMMARY_PROMPT,
       temperature: 0.3,
-      messages: [
-        { role: "system", content: REPORT_SUMMARY_PROMPT },
-        { role: "user", content: `Tipo: ${reportType}\nMetricas:\n${JSON.stringify(metrics)}` }
-      ]
+      userContent: `Tipo: ${reportType}\nMetricas:\n${JSON.stringify(metrics)}`
     });
 
-    const summary = completion.choices[0]?.message?.content?.trim() ?? "Reporte generado automaticamente.";
+    const summary = completion.text || "Reporte generado automaticamente.";
 
     const { data, error } = await supabase
       .from("ai_reports")
@@ -71,6 +67,12 @@ export async function POST(request: Request) {
     return Response.json({ report: data }, { status: 201 });
   } catch (error) {
     if (error instanceof Response) return error;
+    if (error instanceof GeminiQuotaError) {
+      return Response.json({ error: error.message }, { status: 503 });
+    }
+    if (error instanceof Error && error.message === "Missing GEMINI_API_KEY") {
+      return Response.json({ error: "Missing GEMINI_API_KEY. Configura la variable de entorno del servidor." }, { status: 500 });
+    }
     if (error instanceof z.ZodError) {
       return Response.json({ error: "Body invalido.", details: error.flatten() }, { status: 400 });
     }
