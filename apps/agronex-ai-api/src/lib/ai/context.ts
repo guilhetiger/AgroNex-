@@ -119,9 +119,9 @@ export async function fetchAiAnalyticsContext(
     userId: user.id,
     totals: {
       monthlyExpenseUsd: Number(monthlyExpenseUsd.toFixed(2)),
-      quarterFlights: quarterFlights.length,
+      quarterFlights: (quarterFlights ?? []).length,
       activeClients,
-      totalFlights: allFlights.length,
+      totalFlights: (allFlights ?? []).length,
       topAgrochemical
     },
     monthlyExpenses: (monthlyRows as AiAnalyticsContext["monthlyExpenses"]) ?? [],
