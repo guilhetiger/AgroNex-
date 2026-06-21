@@ -6,6 +6,9 @@ import * as Sharing from 'expo-sharing';
 export type ReportExportPayload = {
   profitUsd: number;
   expensesUsd: number;
+  profitDisplay: number;
+  expensesDisplay: number;
+  currency: string;
   totalHectares: number;
   flightCount: number;
   bestClient: string;
@@ -19,7 +22,9 @@ export function buildReportCsv(p: ReportExportPayload): string {
     'AgroNex;exportacion_csv',
     `fecha_iso;${p.generatedAtIso}`,
     `lucro_estimado_usd;${p.profitUsd}`,
+    `lucro_estimado_${p.currency.toLowerCase()};${p.profitDisplay}`,
     `gastos_usd;${p.expensesUsd}`,
+    `gastos_${p.currency.toLowerCase()};${p.expensesDisplay}`,
     `hectareas_aplicadas;${p.totalHectares}`,
     `vuelos;${p.flightCount}`,
     `cliente_top;${escapeCsv(p.bestClient)}`,
@@ -50,7 +55,9 @@ export function buildReportHtml(p: ReportExportPayload): string {
     <h2>Resumen financiero</h2>
     <table>
       <tr><td>Lucro estimado (USD)</td><td><strong>${p.profitUsd.toFixed(2)}</strong></td></tr>
+      <tr><td>Lucro estimado (${p.currency})</td><td><strong>${p.profitDisplay.toFixed(2)}</strong></td></tr>
       <tr><td>Gastos (USD)</td><td>${p.expensesUsd.toFixed(2)}</td></tr>
+      <tr><td>Gastos (${p.currency})</td><td>${p.expensesDisplay.toFixed(2)}</td></tr>
       <tr><td>Hectáreas aplicadas</td><td>${p.totalHectares}</td></tr>
       <tr><td>Vuelos</td><td>${p.flightCount}</td></tr>
       <tr><td>Eficiencia ha/vuelo</td><td>${p.efficiencyHaPerFlight}</td></tr>

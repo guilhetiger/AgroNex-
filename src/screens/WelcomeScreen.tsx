@@ -1,11 +1,13 @@
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Text, View } from 'react-native';
 import { useTheme } from '@theme/ThemeProvider';
 import { PressableScale } from '@components/ui/PressableScale';
+import type { AuthStackParamList } from '@navigation/types';
 
 export function WelcomeScreen() {
   const { colors, radii } = useTheme();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<AuthStackParamList, 'Welcome'>>();
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background, padding: 24, justifyContent: 'flex-end' }}>
@@ -26,7 +28,7 @@ export function WelcomeScreen() {
           Clientes, vuelos, mapas, costos e IA agrícola — listo para escalar como startup real.
         </Text>
         <PressableScale
-          onPress={() => navigation.navigate('Onboarding' as never)}
+          onPress={() => navigation.navigate('Onboarding')}
           style={{
             backgroundColor: colors.primary,
             paddingVertical: 16,
@@ -38,7 +40,7 @@ export function WelcomeScreen() {
           <Text style={{ color: '#06110C', textAlign: 'center', fontWeight: '900', fontSize: 15 }}>Descubrir la plataforma</Text>
         </PressableScale>
         <PressableScale
-          onPress={() => navigation.navigate('SignIn' as never)}
+          onPress={() => navigation.navigate('SignIn')}
           style={{
             borderColor: colors.border,
             borderWidth: 1,

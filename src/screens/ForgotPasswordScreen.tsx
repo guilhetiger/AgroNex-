@@ -1,15 +1,17 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { KeyboardAwareScreen } from '@components/KeyboardAwareScreen';
 import { useAuth } from '@hooks/useAuth';
+import type { AuthStackParamList } from '@navigation/types';
 import { useTheme } from '@theme/ThemeProvider';
 
 export function ForgotPasswordScreen() {
   const { colors } = useTheme();
   const { resetPassword } = useAuth();
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<NativeStackNavigationProp<AuthStackParamList, 'ForgotPassword'>>();
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -30,8 +32,7 @@ export function ForgotPasswordScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
-      <View style={styles.content}>
+    <KeyboardAwareScreen contentContainerStyle={styles.content}>
         <TouchableOpacity activeOpacity={0.84} onPress={() => navigation.goBack()} style={[styles.backButton, { borderColor: colors.border, backgroundColor: colors.surface }]}>
           <MaterialIcons name="arrow-back" size={20} color={colors.text} />
           <Text style={[styles.backText, { color: colors.text }]}>Volver</Text>
@@ -63,14 +64,12 @@ export function ForgotPasswordScreen() {
             {isSubmitting ? <ActivityIndicator color="#F8FFF9" /> : <Text style={styles.buttonText}>Enviar enlace</Text>}
           </TouchableOpacity>
         </View>
-      </View>
-    </SafeAreaView>
+    </KeyboardAwareScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1 },
-  content: { flex: 1, padding: 22, justifyContent: 'center', gap: 18 },
+  content: { justifyContent: 'center', gap: 18 },
   backButton: {
     alignSelf: 'flex-start',
     minHeight: 44,

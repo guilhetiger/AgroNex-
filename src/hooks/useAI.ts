@@ -4,8 +4,11 @@ import { getClientScore, getOperationalInsights, getPriceSuggestion } from '@ser
 export function useAI(client: Client | null, flights: Flight[], expenses: Expense[], country: string) {
   const clientScore = client ? getClientScore(client, flights, expenses) : null;
 
+  const months = new Set(expenses.map((expense) => expense.date.slice(0, 7)));
   const monthlyOpExUsd =
-    expenses.length > 0 ? expenses.reduce((s, e) => s + e.amount, 0) / Math.min(6, expenses.length) : 0;
+    expenses.length > 0
+      ? expenses.reduce((s, e) => s + e.amount, 0) / Math.max(1, Math.min(6, months.size || 1))
+      : 0;
 
   const refArea =
     client?.area ||

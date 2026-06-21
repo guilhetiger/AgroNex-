@@ -7,6 +7,7 @@
       "@navigation/*": ["src/navigation/*"],
       "@theme/*": ["src/theme/*"],
       "@services/*": ["src/services/*"],
+      "@repositories/*": ["src/repositories/*"],
       "@context/*": ["src/context/*"],
       "@hooks/*": ["src/hooks/*"],
       "@utils/*": ["src/utils/*"],

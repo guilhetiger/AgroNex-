@@ -1,16 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  fetchClientData,
-  fetchFlightData,
-  fetchFarmData,
-  fetchAgrochemicalData,
-  fetchExpenseData,
-  createClient,
-  createFlight,
-  createAgrochemical,
-  createExpense,
-  deleteClient,
-} from '../services/supabaseClient';
+  agroDataRepository,
+  type CreateAgrochemicalInput,
+  type CreateClientInput,
+  type CreateExpenseInput,
+  type CreateFlightInput,
+} from '@repositories/agroDataRepository';
+import { useDataStore, type DataDomain } from '../store/dataStore';
 import { useAuth } from './useAuth';
 import { Client, Flight, Farm, Agrochemical, Expense } from '../types/index';
 
@@ -22,13 +18,19 @@ export const queryKeys = {
   expenses: ['expenses'] as const,
 };
 
+async function trackSync<T>(domain: DataDomain, loader: () => Promise<T>) {
+  const data = await loader();
+  useDataStore.getState().markSynced(domain);
+  return data;
+}
+
 // Custom hooks for data fetching
 export function useClients() {
   const { user } = useAuth();
 
   return useQuery<Client[]>({
     queryKey: [...queryKeys.clients, user?.id],
-    queryFn: () => fetchClientData(user!.id),
+    queryFn: () => trackSync('clients', () => agroDataRepository.fetchClients(user!.id)),
     enabled: !!user?.id,
     staleTime: 1000 * 60 * 10, // 10 minutes
   });
@@ -39,7 +41,7 @@ export function useFlights() {
 
   return useQuery<Flight[]>({
     queryKey: [...queryKeys.flights, user?.id],
-    queryFn: () => fetchFlightData(user!.id),
+    queryFn: () => trackSync('flights', () => agroDataRepository.fetchFlights(user!.id)),
     enabled: !!user?.id,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
@@ -50,7 +52,7 @@ export function useFarms() {
 
   return useQuery<Farm[]>({
     queryKey: [...queryKeys.farms, user?.id],
-    queryFn: () => fetchFarmData(user!.id),
+    queryFn: () => trackSync('farms', () => agroDataRepository.fetchFarms(user!.id)),
     enabled: !!user?.id,
     staleTime: 1000 * 60 * 15, // 15 minutes
   });
@@ -61,7 +63,7 @@ export function useAgrochemicals() {
 
   return useQuery<Agrochemical[]>({
     queryKey: [...queryKeys.agrochemicals, user?.id],
-    queryFn: () => fetchAgrochemicalData(user!.id),
+    queryFn: () => trackSync('agrochemicals', () => agroDataRepository.fetchAgrochemicals(user!.id)),
     enabled: !!user?.id,
     staleTime: 1000 * 60 * 10,
   });
@@ -72,7 +74,7 @@ export function useExpenses() {
 
   return useQuery<Expense[]>({
     queryKey: [...queryKeys.expenses, user?.id],
-    queryFn: () => fetchExpenseData(user!.id),
+    queryFn: () => trackSync('expenses', () => agroDataRepository.fetchExpenses(user!.id)),
     enabled: !!user?.id,
     staleTime: 1000 * 60 * 10,
   });
@@ -84,9 +86,10 @@ export function useCreateClient() {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: (clientData: Omit<Parameters<typeof createClient>[0], 'owner_id'>) =>
-      createClient({ ...clientData, owner_id: user!.id }),
+    mutationFn: (clientData: Omit<CreateClientInput, 'owner_id'>) =>
+      agroDataRepository.createClient({ ...clientData, owner_id: user!.id }),
     onSuccess: () => {
+      useDataStore.getState().markSynced('clients');
       queryClient.invalidateQueries({ queryKey: queryKeys.clients });
     },
   });
@@ -96,9 +99,10 @@ export function useCreateAgrochemical() {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: (data: Omit<Parameters<typeof createAgrochemical>[0], 'owner_id'>) =>
-      createAgrochemical({ ...data, owner_id: user!.id }),
+    mutationFn: (data: Omit<CreateAgrochemicalInput, 'owner_id'>) =>
+      agroDataRepository.createAgrochemical({ ...data, owner_id: user!.id }),
     onSuccess: () => {
+      useDataStore.getState().markSynced('agrochemicals');
       queryClient.invalidateQueries({ queryKey: queryKeys.agrochemicals });
     },
   });
@@ -109,9 +113,10 @@ export function useCreateExpense() {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: (data: Omit<Parameters<typeof createExpense>[0], 'owner_id'>) =>
-      createExpense({ ...data, owner_id: user!.id }),
+    mutationFn: (data: Omit<CreateExpenseInput, 'owner_id'>) =>
+      agroDataRepository.createExpense({ ...data, owner_id: user!.id }),
     onSuccess: () => {
+      useDataStore.getState().markSynced('expenses');
       queryClient.invalidateQueries({ queryKey: queryKeys.expenses });
     },
   });
@@ -121,9 +126,10 @@ export function useCreateFlight() {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: (flightData: Omit<Parameters<typeof createFlight>[0], 'user_id'>) =>
-      createFlight({ ...flightData, user_id: user!.id }),
+    mutationFn: (flightData: Omit<CreateFlightInput, 'user_id'>) =>
+      agroDataRepository.createFlight({ ...flightData, user_id: user!.id }),
     onSuccess: () => {
+      useDataStore.getState().markSynced('flights');
       queryClient.invalidateQueries({ queryKey: queryKeys.flights });
     },
   });
@@ -133,8 +139,9 @@ export function useDeleteClient() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (clientId: string) => deleteClient(clientId),
+    mutationFn: (clientId: string) => agroDataRepository.deleteClient(clientId),
     onSuccess: () => {
+      useDataStore.getState().markSynced('clients');
       queryClient.invalidateQueries({ queryKey: queryKeys.clients });
       queryClient.invalidateQueries({ queryKey: queryKeys.flights });
       queryClient.invalidateQueries({ queryKey: queryKeys.farms });

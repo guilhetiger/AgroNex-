@@ -1,7 +1,7 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GlassCard } from '@components/ui/GlassCard';
 import { SectionHeader } from '@components/ui/SectionHeader';
@@ -9,26 +9,22 @@ import { useTheme } from '@theme/ThemeProvider';
 import { useFlights, useClients } from '@hooks/useData';
 import { useLocalization } from '@context/LocalizationContext';
 import { parseRoutePolyline } from '@utils/geo';
+import type { AppStackParamList } from '@navigation/types';
 
-type FlightDetailRoute = RouteProp<Record<string, { flightId: string }>, string>;
-
-const fallbackPath = [
-  { latitude: -16.4897, longitude: -68.1193 },
-  { latitude: -16.4885, longitude: -68.118 },
-  { latitude: -16.4875, longitude: -68.12 },
-];
+type FlightDetailRoute = RouteProp<AppStackParamList, 'FlightDetail'>;
 
 export function FlightDetailScreen() {
   const route = useRoute<FlightDetailRoute>();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList, 'FlightDetail'>>();
   const { colors, radii } = useTheme();
   const { formatDate } = useLocalization();
   const { data: flights, isLoading } = useFlights();
   const { data: clients } = useClients();
-  const flight = flights?.find((item) => item.id === route.params.flightId);
+  const flightId = route.params?.flightId;
+  const flight = flights?.find((item) => item.id === flightId);
   const client = clients?.find((c) => c.id === flight?.client_id);
+  const pts = parseRoutePolyline(flight?.route_coordinates);
 
-  const path = parseRoutePolyline(flight?.route_coordinates) || fallbackPath;
   const mapsUrl =
     client?.latitude != null && client?.longitude != null
       ? `https://www.google.com/maps/search/?api=1&query=${client.latitude},${client.longitude}`
@@ -36,7 +32,7 @@ export function FlightDetailScreen() {
 
   const goBack = () => {
     if (navigation.canGoBack()) navigation.goBack();
-    else navigation.navigate('MainTab' as never);
+    else navigation.navigate('MainTab', { screen: 'Flights' });
   };
 
   if (isLoading || !flights) {
@@ -50,7 +46,7 @@ export function FlightDetailScreen() {
   if (!flight) {
     return (
       <SafeAreaView style={[styles.center, { backgroundColor: colors.background }]} edges={['top']}>
-        <Text style={{ color: colors.text, textAlign: 'center' }}>Vuelo no encontrado.</Text>
+        <Text style={{ color: colors.text }}>Vuelo no encontrado.</Text>
         <TouchableOpacity onPress={goBack} style={[styles.backBtn, { borderColor: colors.border, marginTop: 16 }]}>
           <Text style={{ color: colors.primary, fontWeight: '800' }}>Volver</Text>
         </TouchableOpacity>
@@ -66,16 +62,21 @@ export function FlightDetailScreen() {
           <Text style={[styles.backText, { color: colors.text }]}>Volver</Text>
         </TouchableOpacity>
 
-        <SectionHeader title={`Vuelo ${flight.id.slice(-4).toUpperCase()}`} subtitle={flight.farm_name || 'Detalle operativo'} />
+        <SectionHeader title={`Vuelo ${flight.id.slice(-4).toUpperCase()}`} subtitle={flight.farm_name || 'Detalle del vuelo'} />
 
         <GlassCard>
           <Text style={[styles.k, { color: colors.textSecondary }]}>Cliente</Text>
           <Text style={[styles.v, { color: colors.text }]}>{client?.name || 'Cliente'}</Text>
           <Text style={[styles.k, { color: colors.textSecondary, marginTop: 12 }]}>Fecha</Text>
           <Text style={[styles.v, { color: colors.text }]}>{formatDate(flight.date)}</Text>
+          {pts ? (
+            <Text style={{ color: colors.textSecondary, marginTop: 10, fontWeight: '600' }}>
+              Ruta GPS: {pts.length} puntos registrados (mapa en app móvil).
+            </Text>
+          ) : null}
           {mapsUrl ? (
-            <TouchableOpacity onPress={() => Linking.openURL(mapsUrl)} style={{ marginTop: 14 }}>
-              <Text style={{ color: colors.accent, fontWeight: '800' }}>Abrir ubicación en Maps →</Text>
+            <TouchableOpacity onPress={() => Linking.openURL(mapsUrl)} style={{ marginTop: 12 }}>
+              <Text style={{ color: colors.accent, fontWeight: '800' }}>Abrir finca en Maps →</Text>
             </TouchableOpacity>
           ) : null}
         </GlassCard>
@@ -94,23 +95,6 @@ export function FlightDetailScreen() {
           <Text style={[styles.v, { color: colors.text, marginTop: 6 }]}>Viento: {flight.wind || 'N/A'}</Text>
           <Text style={[styles.v, { color: colors.text, marginTop: 6 }]}>Batería: {flight.battery_usage || 'N/A'}</Text>
           <Text style={[styles.v, { color: colors.text, marginTop: 6 }]}>Consumo: {flight.consumption || 'N/A'}</Text>
-        </GlassCard>
-
-        <GlassCard style={{ height: 260, padding: 0, overflow: 'hidden', borderRadius: radii.lg }}>
-          <MapView
-            provider={PROVIDER_GOOGLE}
-            style={{ flex: 1 }}
-            initialRegion={{
-              latitude: path[0].latitude,
-              longitude: path[0].longitude,
-              latitudeDelta: 0.006,
-              longitudeDelta: 0.006,
-            }}
-          >
-            <Polyline coordinates={path} strokeColor={colors.primary} strokeWidth={4} />
-            <Marker coordinate={path[0]} title="Inicio" />
-            <Marker coordinate={path[path.length - 1]} title="Fin" />
-          </MapView>
         </GlassCard>
 
         {flight.notes ? (

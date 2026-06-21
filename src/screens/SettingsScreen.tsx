@@ -5,7 +5,6 @@ import { GlassCard } from '@components/ui/GlassCard';
 import { SectionHeader } from '@components/ui/SectionHeader';
 import { useAuth } from '@hooks/useAuth';
 import { useTheme } from '@theme/ThemeProvider';
-import { useNotifications } from '@hooks/useNotifications';
 import { useLocalization } from '@context/LocalizationContext';
 import { useSync } from '@context/SyncContext';
 import { CountryOption, CurrencyOption, LanguageOption } from '../types/index';
@@ -27,36 +26,17 @@ const languages: Array<{ value: LanguageOption; label: string }> = [
 
 export function SettingsScreen() {
   const { colors, mode, setThemeMode } = useTheme();
-  const { signOut } = useAuth();
-  const { permissionStatus, scheduledNotifications, requestPermissions, clearAllScheduledNotifications } = useNotifications();
+  const { signOut, hasRole } = useAuth();
+  const isAdmin = hasRole(['admin']);
   const { setLanguage, setCurrency, setCountry, language, currency, country, t, formatDate } = useLocalization();
   const { isSyncing, lastSyncedAt, syncNow } = useSync();
 
   const handleRequestPermissions = async () => {
-    try {
-      await requestPermissions();
-      Alert.alert('Listo', 'Las notificaciones quedaron activadas.');
-    } catch {
-      Alert.alert('No se pudo activar', 'Revisa los permisos de notificación del dispositivo.');
-    }
+    Alert.alert('No disponible', 'Las notificaciones estarán disponibles en una próxima versión estable.');
   };
 
   const handleClearNotifications = async () => {
-    Alert.alert('Confirmar', '¿Deseas eliminar todas las notificaciones programadas?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Eliminar',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await clearAllScheduledNotifications();
-            Alert.alert('Listo', 'Todas las notificaciones fueron eliminadas.');
-          } catch {
-            Alert.alert('Error', 'No se pudieron eliminar las notificaciones.');
-          }
-        },
-      },
-    ]);
+    Alert.alert('No disponible', 'No hay notificaciones activas en esta versión estable.');
   };
 
   return (
@@ -163,22 +143,29 @@ export function SettingsScreen() {
             <MaterialIcons name="notifications-active" size={22} color={colors.accent} />
             <View style={{ flex: 1 }}>
               <Text style={[styles.infoTitle, { color: colors.text }]}>
-                {permissionStatus === 'granted' ? 'Activadas' : permissionStatus === 'denied' ? 'Denegadas' : 'Pendientes'}
+                Desactivadas temporalmente
               </Text>
               <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-                {scheduledNotifications.length} recordatorios programados
+                0 recordatorios programados
               </Text>
             </View>
           </View>
           <View style={styles.actionRow}>
             <TouchableOpacity activeOpacity={0.84} onPress={handleRequestPermissions} style={[styles.primaryButton, { backgroundColor: colors.primary }]}>
-              <Text style={styles.primaryButtonText}>{permissionStatus === 'granted' ? 'Revisar' : 'Activar'}</Text>
+              <Text style={styles.primaryButtonText}>Revisar</Text>
             </TouchableOpacity>
             <TouchableOpacity activeOpacity={0.84} onPress={handleClearNotifications} style={[styles.dangerButton, { backgroundColor: colors.error + '16' }]}>
               <Text style={[styles.dangerButtonText, { color: colors.error }]}>Limpiar</Text>
             </TouchableOpacity>
           </View>
         </GlassCard>
+
+        {isAdmin && (
+          <GlassCard style={styles.card}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Configuración administrativa</Text>
+            <Text style={[styles.cardHint, { color: colors.textSecondary }]}>Solo disponible para usuarios con rol Administrador.</Text>
+          </GlassCard>
+        )}
 
         <GlassCard style={styles.card}>
           <Text style={[styles.cardTitle, { color: colors.text }]}>Cuenta</Text>

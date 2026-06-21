@@ -1,0 +1,20 @@
+# Exclude local build artifacts and generated files
+android-backup/
+android-dist/
+android-dist-test/
+web-dist/
+.expo/
+.expo-shared/
+**/node_modules/
+node_modules/
+**/build/
+**/.gradle/
+**/.idea/
+**/.vscode/
+*.log
+npm-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.DS_Store
+.env
+.env.*

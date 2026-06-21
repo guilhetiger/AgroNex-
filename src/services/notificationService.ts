@@ -1,16 +1,21 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
-// Configure notification handler
-Notifications.setNotificationHandler({
-  handleNotification: async (): Promise<Notifications.NotificationBehavior> => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+if (Platform.OS !== 'web') {
+  try {
+    Notifications.setNotificationHandler({
+      handleNotification: async (): Promise<Notifications.NotificationBehavior> => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+  } catch (error) {
+    console.warn('Notification handler setup failed', error);
+  }
+}
 
 // Request permissions
 export async function requestNotificationPermissions() {

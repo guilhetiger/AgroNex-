@@ -90,27 +90,71 @@ alter table public.flights enable row level security;
 alter table public.agrochemicals enable row level security;
 alter table public.expenses enable row level security;
 
+drop policy if exists "clients_select_own" on public.clients;
 create policy "clients_select_own" on public.clients for select using (auth.uid() = owner_id);
+drop policy if exists "clients_insert_own" on public.clients;
 create policy "clients_insert_own" on public.clients for insert with check (auth.uid() = owner_id);
+drop policy if exists "clients_update_own" on public.clients;
 create policy "clients_update_own" on public.clients for update using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+drop policy if exists "clients_delete_own" on public.clients;
 create policy "clients_delete_own" on public.clients for delete using (auth.uid() = owner_id);
 
+drop policy if exists "farms_select_own" on public.farms;
 create policy "farms_select_own" on public.farms for select using (auth.uid() = owner_id);
+drop policy if exists "farms_insert_own" on public.farms;
 create policy "farms_insert_own" on public.farms for insert with check (auth.uid() = owner_id);
+drop policy if exists "farms_update_own" on public.farms;
 create policy "farms_update_own" on public.farms for update using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+drop policy if exists "farms_delete_own" on public.farms;
 create policy "farms_delete_own" on public.farms for delete using (auth.uid() = owner_id);
 
+drop policy if exists "flights_select_own" on public.flights;
 create policy "flights_select_own" on public.flights for select using (auth.uid() = user_id);
-create policy "flights_insert_own" on public.flights for insert with check (auth.uid() = user_id);
-create policy "flights_update_own" on public.flights for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "flights_insert_own" on public.flights;
+create policy "flights_insert_own" on public.flights for insert with check (
+  auth.uid() = user_id
+  and (
+    client_id is null
+    or exists (
+      select 1
+      from public.clients c
+      where c.id = client_id
+        and c.owner_id = auth.uid()
+    )
+  )
+);
+drop policy if exists "flights_update_own" on public.flights;
+create policy "flights_update_own" on public.flights for update
+using (auth.uid() = user_id)
+with check (
+  auth.uid() = user_id
+  and (
+    client_id is null
+    or exists (
+      select 1
+      from public.clients c
+      where c.id = client_id
+        and c.owner_id = auth.uid()
+    )
+  )
+);
+drop policy if exists "flights_delete_own" on public.flights;
 create policy "flights_delete_own" on public.flights for delete using (auth.uid() = user_id);
 
+drop policy if exists "agrochemicals_select_own" on public.agrochemicals;
 create policy "agrochemicals_select_own" on public.agrochemicals for select using (auth.uid() = owner_id);
+drop policy if exists "agrochemicals_insert_own" on public.agrochemicals;
 create policy "agrochemicals_insert_own" on public.agrochemicals for insert with check (auth.uid() = owner_id);
+drop policy if exists "agrochemicals_update_own" on public.agrochemicals;
 create policy "agrochemicals_update_own" on public.agrochemicals for update using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+drop policy if exists "agrochemicals_delete_own" on public.agrochemicals;
 create policy "agrochemicals_delete_own" on public.agrochemicals for delete using (auth.uid() = owner_id);
 
+drop policy if exists "expenses_select_own" on public.expenses;
 create policy "expenses_select_own" on public.expenses for select using (auth.uid() = owner_id);
+drop policy if exists "expenses_insert_own" on public.expenses;
 create policy "expenses_insert_own" on public.expenses for insert with check (auth.uid() = owner_id);
+drop policy if exists "expenses_update_own" on public.expenses;
 create policy "expenses_update_own" on public.expenses for update using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+drop policy if exists "expenses_delete_own" on public.expenses;
 create policy "expenses_delete_own" on public.expenses for delete using (auth.uid() = owner_id);

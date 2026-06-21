@@ -6,15 +6,22 @@ import { FlightsScreen } from '@screens/FlightsScreen';
 import { MapsScreen } from '@screens/MapsScreen';
 import { SettingsScreen } from '@screens/SettingsScreen';
 import { ReportsScreen } from '@screens/ReportsScreen';
+import { AgroChatScreen } from '@screens/AgroChatScreen';
+import { IntelligentReportsScreen } from '@screens/IntelligentReportsScreen';
+import { OcrExpenseScreen } from '@screens/OcrExpenseScreen';
 import { AgrochemicalsScreen } from '@screens/AgrochemicalsScreen';
 import { ExpensesScreen } from '@screens/ExpensesScreen';
 import { ClientDetailScreen } from '@screens/ClientDetailScreen';
 import { FlightDetailScreen } from '@screens/FlightDetailScreen';
 import { GeoHistoryScreen } from '@screens/GeoHistoryScreen';
 import { PremiumTabBar } from './PremiumTabBar';
+import { RoleGuard } from './RoleGuard';
+import type { UserRole } from '../types';
+import type { AppStackParamList, AppTabParamList } from './types';
 
-const Tab = createBottomTabNavigator();
-const Stack = createNativeStackNavigator();
+const Tab = createBottomTabNavigator<AppTabParamList>();
+const Stack = createNativeStackNavigator<AppStackParamList>();
+const ALL_APP_ROLES: UserRole[] = ['admin', 'operator', 'client'];
 
 function MainTabNavigator() {
   return (
@@ -41,18 +48,28 @@ function MainTabNavigator() {
       />
       <Tab.Screen
         name="Clients"
-        component={ClientsScreen}
         options={{
           tabBarLabel: 'Clientes',
         }}
-      />
+      >
+        {() => (
+          <RoleGuard allowedRoles={ALL_APP_ROLES}>
+            <ClientsScreen />
+          </RoleGuard>
+        )}
+      </Tab.Screen>
       <Tab.Screen
         name="Flights"
-        component={FlightsScreen}
         options={{
           tabBarLabel: 'Vuelos',
         }}
-      />
+      >
+        {() => (
+          <RoleGuard allowedRoles={ALL_APP_ROLES}>
+            <FlightsScreen />
+          </RoleGuard>
+        )}
+      </Tab.Screen>
       <Tab.Screen
         name="Maps"
         component={MapsScreen}
@@ -75,12 +92,69 @@ export function MainTabs() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="MainTab" component={MainTabNavigator} />
-      <Stack.Screen name="Reports" component={ReportsScreen} />
-      <Stack.Screen name="Agrochemicals" component={AgrochemicalsScreen} />
-      <Stack.Screen name="Expenses" component={ExpensesScreen} />
-      <Stack.Screen name="ClientDetail" component={ClientDetailScreen} />
-      <Stack.Screen name="FlightDetail" component={FlightDetailScreen} />
-      <Stack.Screen name="GeoHistory" component={GeoHistoryScreen} />
+      <Stack.Screen name="Reports">
+        {() => (
+          <RoleGuard allowedRoles={ALL_APP_ROLES}>
+            <ReportsScreen />
+          </RoleGuard>
+        )}
+      </Stack.Screen>
+      <Stack.Screen name="AgroChat">
+        {() => (
+          <RoleGuard allowedRoles={ALL_APP_ROLES}>
+            <AgroChatScreen />
+          </RoleGuard>
+        )}
+      </Stack.Screen>
+      <Stack.Screen name="IntelligentReports">
+        {() => (
+          <RoleGuard allowedRoles={ALL_APP_ROLES}>
+            <IntelligentReportsScreen />
+          </RoleGuard>
+        )}
+      </Stack.Screen>
+      <Stack.Screen name="OcrExpense">
+        {() => (
+          <RoleGuard allowedRoles={ALL_APP_ROLES}>
+            <OcrExpenseScreen />
+          </RoleGuard>
+        )}
+      </Stack.Screen>
+      <Stack.Screen name="Agrochemicals">
+        {() => (
+          <RoleGuard allowedRoles={ALL_APP_ROLES}>
+            <AgrochemicalsScreen />
+          </RoleGuard>
+        )}
+      </Stack.Screen>
+      <Stack.Screen name="Expenses">
+        {() => (
+          <RoleGuard allowedRoles={ALL_APP_ROLES}>
+            <ExpensesScreen />
+          </RoleGuard>
+        )}
+      </Stack.Screen>
+      <Stack.Screen name="ClientDetail">
+        {() => (
+          <RoleGuard allowedRoles={ALL_APP_ROLES}>
+            <ClientDetailScreen />
+          </RoleGuard>
+        )}
+      </Stack.Screen>
+      <Stack.Screen name="FlightDetail">
+        {() => (
+          <RoleGuard allowedRoles={ALL_APP_ROLES}>
+            <FlightDetailScreen />
+          </RoleGuard>
+        )}
+      </Stack.Screen>
+      <Stack.Screen name="GeoHistory">
+        {() => (
+          <RoleGuard allowedRoles={ALL_APP_ROLES}>
+            <GeoHistoryScreen />
+          </RoleGuard>
+        )}
+      </Stack.Screen>
     </Stack.Navigator>
   );
 }

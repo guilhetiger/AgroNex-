@@ -1,13 +1,15 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { ActivityIndicator, FlatList, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { FormTextInput } from '@components/ui/FormTextInput';
 import { GlassCard } from '@components/ui/GlassCard';
 import { QuickModuleBackBar } from '@components/ui/QuickModuleBackBar';
 import { SectionHeader } from '@components/ui/SectionHeader';
 import { useTheme } from '@theme/ThemeProvider';
 import { useAgrochemicals, useCreateAgrochemical } from '@hooks/useData';
 import { useLocalization } from '@context/LocalizationContext';
+import { parseDecimalInput } from '@utils/number';
 
 export function AgrochemicalsScreen() {
   const { colors } = useTheme();
@@ -29,13 +31,13 @@ export function AgrochemicalsScreen() {
   const save = async () => {
     await createChemical.mutateAsync({
       product: form.product || 'Producto agrícola',
-      application_rate: Number(form.application_rate) || 0,
-      total_used: Number(form.total_used) || 0,
+      application_rate: parseDecimalInput(form.application_rate),
+      total_used: parseDecimalInput(form.total_used),
       batch: form.batch || 'Sin lote',
       expiry_date: form.expiry_date || new Date().toISOString(),
       mixture: form.mixture || 'Mezcla pendiente',
-      stock: Number(form.stock) || 0,
-      unit_cost_usd: form.unit_cost_usd.trim() ? Number(form.unit_cost_usd) : null,
+      stock: parseDecimalInput(form.stock),
+      unit_cost_usd: form.unit_cost_usd.trim() ? parseDecimalInput(form.unit_cost_usd) : null,
     });
     setForm({ product: '', application_rate: '', total_used: '', batch: '', expiry_date: '', mixture: '', stock: '', unit_cost_usd: '' });
     setOpen(false);
@@ -56,6 +58,7 @@ export function AgrochemicalsScreen() {
         data={chemicals || []}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
           <View style={{ gap: 14 }}>
             <QuickModuleBackBar />
@@ -105,24 +108,26 @@ export function AgrochemicalsScreen() {
               <Text style={[styles.modalTitle, { color: colors.text }]}>Nuevo producto</Text>
               <TouchableOpacity onPress={() => setOpen(false)}><MaterialIcons name="close" size={24} color={colors.text} /></TouchableOpacity>
             </View>
-            {[
-              ['Producto', 'product'],
-              ['Cantidad por hectárea', 'application_rate'],
-              ['Total usado', 'total_used'],
-              ['Lote', 'batch'],
-              ['Vencimiento YYYY-MM-DD', 'expiry_date'],
-              ['Mezcla aplicada', 'mixture'],
-              ['Stock restante', 'stock'],
-              ['Costo unitario (USD)', 'unit_cost_usd'],
-            ].map(([label, key]) => (
-              <Input
-                key={key}
-                label={label}
-                value={(form as Record<string, string>)[key]}
-                onChangeText={(value) => setForm((current) => ({ ...current, [key]: value }))}
-                keyboardType={key === 'unit_cost_usd' || key === 'application_rate' || key === 'total_used' || key === 'stock' ? 'numeric' : 'default'}
-              />
-            ))}
+            <ScrollView contentContainerStyle={styles.formGrid} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+              {[
+                ['Producto', 'product'],
+                ['Cantidad por hectárea', 'application_rate'],
+                ['Total usado', 'total_used'],
+                ['Lote', 'batch'],
+                ['Vencimiento YYYY-MM-DD', 'expiry_date'],
+                ['Mezcla aplicada', 'mixture'],
+                ['Stock restante', 'stock'],
+                ['Costo unitario (USD)', 'unit_cost_usd'],
+              ].map(([label, key]) => (
+                <FormTextInput
+                  key={key}
+                  label={label}
+                  value={(form as Record<string, string>)[key]}
+                  onChangeText={(value) => setForm((current) => ({ ...current, [key]: value }))}
+                  keyboardType={key === 'unit_cost_usd' || key === 'application_rate' || key === 'total_used' || key === 'stock' ? 'decimal-pad' : 'default'}
+                />
+              ))}
+            </ScrollView>
             <TouchableOpacity activeOpacity={0.84} onPress={save} style={[styles.saveButton, { backgroundColor: colors.primary }]}>
               <Text style={styles.saveButtonText}>Guardar producto</Text>
             </TouchableOpacity>
@@ -132,28 +137,6 @@ export function AgrochemicalsScreen() {
     </SafeAreaView>
   );
 
-  function Input({
-    label,
-    value,
-    onChangeText,
-    keyboardType,
-  }: {
-    label: string;
-    value: string;
-    onChangeText: (value: string) => void;
-    keyboardType?: 'default' | 'numeric';
-  }) {
-    return (
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        keyboardType={keyboardType || 'default'}
-        placeholder={label}
-        placeholderTextColor={colors.onSurfaceSecondary}
-        style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
-      />
-    );
-  }
 }
 
 const styles = StyleSheet.create({
@@ -173,9 +156,9 @@ const styles = StyleSheet.create({
   itemText: { fontSize: 13, lineHeight: 19, fontWeight: '700' },
   modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.42)' },
   modalCard: { borderTopLeftRadius: 8, borderTopRightRadius: 8, borderWidth: 1, padding: 20, gap: 12, maxHeight: '92%' },
+  formGrid: { gap: 12, paddingBottom: 4 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   modalTitle: { fontSize: 22, fontWeight: '900' },
-  input: { minHeight: 48, borderWidth: 1, borderRadius: 8, paddingHorizontal: 14, fontWeight: '700' },
   saveButton: { minHeight: 50, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   saveButtonText: { color: '#F8FFF9', fontWeight: '900' },
 });

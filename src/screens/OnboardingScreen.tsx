@@ -1,11 +1,13 @@
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Text, View, ScrollView } from 'react-native';
 import { useTheme } from '@theme/ThemeProvider';
 import { GlassCard } from '@components/ui/GlassCard';
 import { PressableScale } from '@components/ui/PressableScale';
+import type { AuthStackParamList } from '@navigation/types';
 
 export function OnboardingScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<AuthStackParamList, 'Onboarding'>>();
   const { colors, radii } = useTheme();
 
   const featureList = [
@@ -47,7 +49,7 @@ export function OnboardingScreen() {
 
       <View style={{ marginTop: 32, gap: 12 }}>
         <PressableScale
-          onPress={() => navigation.navigate('SignIn' as never)}
+          onPress={() => navigation.navigate('SignIn')}
           style={{
             backgroundColor: colors.primary,
             paddingVertical: 16,
@@ -58,7 +60,7 @@ export function OnboardingScreen() {
           <Text style={{ color: '#06110C', textAlign: 'center', fontWeight: '900', fontSize: 15 }}>Iniciar sesión</Text>
         </PressableScale>
         <PressableScale
-          onPress={() => navigation.navigate('SignUp' as never)}
+          onPress={() => navigation.navigate('SignUp')}
           style={{
             borderColor: colors.border,
             borderWidth: 1,

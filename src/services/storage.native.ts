@@ -5,7 +5,9 @@ const USER_KEY = 'AGRONEX_USER';
 
 export const authStorage = {
   saveUser: async (user: User) => {
-    await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
+    await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user), {
+      keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
+    });
   },
   getUser: async () => {
     const data = await SecureStore.getItemAsync(USER_KEY);

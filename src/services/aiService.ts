@@ -1,4 +1,5 @@
 import { Client, Expense, Flight } from '../types/index';
+import { roundMoney } from '@utils/number';
 
 export function getClientScore(client: Client, flights: Flight[], expenses: Expense[]) {
   const activityScore = Math.min(100, flights.length * 8 + client.area);
@@ -37,13 +38,18 @@ export function getPriceSuggestion(country: string, crop: string, size: number, 
   const baseRate = country === 'BO' ? 60 : country === 'BR' ? 70 : country === 'AR' ? 65 : 75;
   const cropName = crop.toLowerCase();
   const cropModifier = cropName.includes('soya') ? 1 : cropName.includes('maíz') || cropName.includes('maiz') ? 1.05 : 1.1;
-  const sizeModifier = size > 50 ? 0.95 : size < 15 ? 1.15 : 1.0;
-  const costPressure = Math.min(1.14, 1 + monthlyOpExUsd / 8500);
-  const suggested = Math.round(baseRate * cropModifier * sizeModifier * costPressure);
+  const safeSize = Math.max(1, size || 1);
+  const sizeModifier = safeSize > 50 ? 0.95 : safeSize < 15 ? 1.15 : 1.0;
+  const estimatedCostPerHectare = roundMoney(monthlyOpExUsd / Math.max(20, safeSize));
+  const costPressure = Math.min(1.18, 1 + estimatedCostPerHectare / 450);
+  const suggested = roundMoney(baseRate * cropModifier * sizeModifier * costPressure);
+  const breakEvenPerHectare = roundMoney(estimatedCostPerHectare * 1.15);
 
   return {
     suggestedPricePerHectare: suggested,
     margin: Math.round(((suggested - baseRate) / baseRate) * 100),
+    estimatedCostPerHectare,
+    breakEvenPerHectare,
     explanation:
       monthlyOpExUsd > 2800
         ? 'OPEX mensual elevado: se ajusta el precio sugerido para proteger margen operativo.'

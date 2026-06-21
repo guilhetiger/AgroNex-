@@ -1,19 +1,22 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LineChart } from 'react-native-chart-kit';
+import { FormTextInput } from '@components/ui/FormTextInput';
 import { GlassCard } from '@components/ui/GlassCard';
 import { QuickModuleBackBar } from '@components/ui/QuickModuleBackBar';
 import { SectionHeader } from '@components/ui/SectionHeader';
 import { useTheme } from '@theme/ThemeProvider';
 import { useCreateExpense, useExpenses } from '@hooks/useData';
 import { useLocalization } from '@context/LocalizationContext';
+import { parseDecimalInput } from '@utils/number';
 
 const categories = ['gasolina', 'aceite', 'mantenimiento', 'baterías', 'alimentación', 'hospedaje', 'salarios', 'transporte', 'repuestos', 'impuestos', 'otros'];
 
 export function ExpensesScreen() {
   const { colors } = useTheme();
+  const { width } = useWindowDimensions();
   const { formatCurrency, convertFromUsd, convertToUsd, currency } = useLocalization();
   const { data: expenses, isLoading } = useExpenses();
   const createExpense = useCreateExpense();
@@ -36,7 +39,7 @@ export function ExpensesScreen() {
   const save = async () => {
     await createExpense.mutateAsync({
       category: form.category,
-      amount: convertToUsd(Number(form.amount) || 0),
+      amount: convertToUsd(parseDecimalInput(form.amount)),
       date: new Date().toISOString(),
       description: form.description || 'Gasto operativo',
       vendor: form.vendor || 'Proveedor no especificado',
@@ -56,7 +59,7 @@ export function ExpensesScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <QuickModuleBackBar />
       <SectionHeader title="Gastos" subtitle="Flujo de caja y rentabilidad" />
       <GlassCard style={styles.heroCard}>
@@ -72,7 +75,7 @@ export function ExpensesScreen() {
         <Text style={[styles.cardTitle, { color: colors.text }]}>Tendencia mensual</Text>
         <LineChart
           data={chartData}
-          width={340}
+          width={Math.max(280, Math.min(width - 56, 520))}
           height={220}
           chartConfig={{
             backgroundGradientFrom: colors.surface,
@@ -103,38 +106,37 @@ export function ExpensesScreen() {
 
       <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
         <View style={styles.modalBackdrop}>
-          <View style={[styles.modalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.modalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>Nuevo gasto</Text>
               <TouchableOpacity onPress={() => setOpen(false)}><MaterialIcons name="close" size={24} color={colors.text} /></TouchableOpacity>
             </View>
-            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Categoría</Text>
-            <View style={styles.categoryWrap}>
-              {categories.map((category) => {
-                const active = form.category === category;
-                return (
-                  <TouchableOpacity key={category} onPress={() => setForm((current) => ({ ...current, category }))} style={[styles.categoryChip, { backgroundColor: active ? colors.primary : colors.background, borderColor: active ? colors.primary : colors.border }]}>
-                    <Text style={[styles.categoryText, { color: active ? '#F8FFF9' : colors.text }]}>{category}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-            <Input label={`Monto (${currency})`} value={form.amount} onChangeText={(value) => setForm((current) => ({ ...current, amount: value }))} keyboardType="numeric" />
-            <Input label="Proveedor" value={form.vendor} onChangeText={(value) => setForm((current) => ({ ...current, vendor: value }))} />
-            <Input label="Descripción" value={form.description} onChangeText={(value) => setForm((current) => ({ ...current, description: value }))} />
+            <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+              <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Categoría</Text>
+              <View style={styles.categoryWrap}>
+                {categories.map((category) => {
+                  const active = form.category === category;
+                  return (
+                    <TouchableOpacity key={category} onPress={() => setForm((current) => ({ ...current, category }))} style={[styles.categoryChip, { backgroundColor: active ? colors.primary : colors.background, borderColor: active ? colors.primary : colors.border }]}>
+                      <Text style={[styles.categoryText, { color: active ? '#F8FFF9' : colors.text }]}>{category}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <FormTextInput label={`Monto (${currency})`} value={form.amount} onChangeText={(value) => setForm((current) => ({ ...current, amount: value }))} keyboardType="decimal-pad" />
+              <FormTextInput label="Proveedor" value={form.vendor} onChangeText={(value) => setForm((current) => ({ ...current, vendor: value }))} />
+              <FormTextInput label="Descripción" value={form.description} onChangeText={(value) => setForm((current) => ({ ...current, description: value }))} />
+            </ScrollView>
             <TouchableOpacity activeOpacity={0.84} onPress={save} style={[styles.saveButton, { backgroundColor: colors.primary }]}>
               <Text style={styles.saveButtonText}>Guardar gasto</Text>
             </TouchableOpacity>
-          </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
     </ScrollView>
     </SafeAreaView>
   );
 
-  function Input({ label, value, onChangeText, keyboardType }: { label: string; value: string; onChangeText: (value: string) => void; keyboardType?: 'default' | 'numeric' }) {
-    return <TextInput value={value} onChangeText={onChangeText} keyboardType={keyboardType || 'default'} placeholder={label} placeholderTextColor={colors.onSurfaceSecondary} style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]} />;
-  }
 }
 
 const styles = StyleSheet.create({
@@ -152,13 +154,13 @@ const styles = StyleSheet.create({
   expenseAmount: { fontSize: 15, fontWeight: '900' },
   modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.42)' },
   modalCard: { borderTopLeftRadius: 8, borderTopRightRadius: 8, borderWidth: 1, padding: 20, gap: 12, maxHeight: '92%' },
+  modalContent: { gap: 12, paddingBottom: 4 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   modalTitle: { fontSize: 22, fontWeight: '900' },
   inputLabel: { fontSize: 12, fontWeight: '900', textTransform: 'uppercase' },
   categoryWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   categoryChip: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 },
   categoryText: { fontSize: 12, fontWeight: '900', textTransform: 'capitalize' },
-  input: { minHeight: 48, borderWidth: 1, borderRadius: 8, paddingHorizontal: 14, fontWeight: '700' },
   saveButton: { minHeight: 50, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   saveButtonText: { color: '#F8FFF9', fontWeight: '900' },
 });

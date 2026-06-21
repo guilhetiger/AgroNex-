@@ -9,3 +9,4 @@ yarn-error.log*
 *.tmp
 dist/
 web-build/
+.env*.local

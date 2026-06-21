@@ -1,6 +1,7 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { saveOfflineRecord, initDatabase } from './localData';
+import { sessionStorage } from './sessionStorage';
 import { Agrochemical, Client, Database, Expense, Flight } from '../types';
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
@@ -19,7 +20,7 @@ export const supabase = createSupabaseClient<Database>(
   hasSupabaseConfig ? SUPABASE_ANON_KEY : fallbackSupabaseKey,
   {
     auth: {
-      storage: AsyncStorage,
+      storage: sessionStorage,
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: false,

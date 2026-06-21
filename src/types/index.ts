@@ -1,7 +1,10 @@
+export type UserRole = 'admin' | 'operator' | 'client';
+
 export type User = {
   id: string;
   name: string;
   email: string;
+  role: UserRole;
   country?: string;
   locale?: string;
   currency?: string;
@@ -109,6 +112,8 @@ export type LocalizationState = {
   convertFromUsd: (value: number) => number;
   /** Monto en moneda seleccionada → USD (p. ej. al guardar un gasto). */
   convertToUsd: (value: number) => number;
+  /** Convierte entre cualquier par soportado, usando USD como moneda pivote. */
+  convertCurrency: (value: number, from: CurrencyOption, to: CurrencyOption) => number;
   formatDate: (value: string | Date) => string;
 };
 

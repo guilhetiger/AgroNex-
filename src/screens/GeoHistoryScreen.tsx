@@ -1,5 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GlassCard } from '@components/ui/GlassCard';
@@ -9,10 +10,11 @@ import { useTheme } from '@theme/ThemeProvider';
 import { useClients, useFlights } from '@hooks/useData';
 import { useLocalization } from '@context/LocalizationContext';
 import { parseRoutePolyline } from '@utils/geo';
+import type { AppStackParamList } from '@navigation/types';
 import type { Flight } from '../types/index';
 
 export function GeoHistoryScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList, 'GeoHistory'>>();
   const { colors } = useTheme();
   const { formatDate } = useLocalization();
   const { data: flights } = useFlights();

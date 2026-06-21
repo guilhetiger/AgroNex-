@@ -8,27 +8,31 @@ import { useTheme } from '@theme/ThemeProvider';
 import { useLocalization } from '@context/LocalizationContext';
 import { useAgrochemicals, useClients, useExpenses, useFlights } from '@hooks/useData';
 import { buildReportCsv, buildReportHtml, shareCsvFile, sharePdfFromHtml, sharePlainMessage, type ReportExportPayload } from '@services/reportExport';
+import { getAppliedHectares, getExpensesUsd, getProfitUsd, getRevenueUsd } from '@services/financial';
 
 export function ReportsScreen() {
   const { colors } = useTheme();
-  const { t, formatCurrency } = useLocalization();
+  const { t, formatCurrency, convertFromUsd, currency } = useLocalization();
   const { data: clients } = useClients();
   const { data: flights } = useFlights();
   const { data: expenses } = useExpenses();
   const { data: chemicals } = useAgrochemicals();
 
-  const totalExpenses = expenses?.reduce((sum, expense) => sum + expense.amount, 0) || 0;
-  const totalHectares = flights?.reduce((sum, flight) => sum + flight.area_covered, 0) || 0;
-  const estimatedRevenue = totalHectares * 110;
-  const profit = estimatedRevenue - totalExpenses;
-  const mostUsedProduct = chemicals?.sort((a, b) => b.total_used - a.total_used)[0]?.product || 'Sin datos';
-  const bestClient = clients?.sort((a, b) => b.area - a.area)[0]?.name || 'Sin datos';
+  const totalExpenses = getExpensesUsd(expenses || []);
+  const totalHectares = getAppliedHectares(flights || []);
+  const estimatedRevenue = getRevenueUsd(totalHectares);
+  const profit = getProfitUsd(estimatedRevenue, totalExpenses);
+  const mostUsedProduct = [...(chemicals || [])].sort((a, b) => b.total_used - a.total_used)[0]?.product || 'Sin datos';
+  const bestClient = [...(clients || [])].sort((a, b) => b.area - a.area)[0]?.name || 'Sin datos';
   const efficiency = flights?.length ? Math.round(totalHectares / flights.length) : 0;
 
   const handleExport = async (type: string) => {
     const payload: ReportExportPayload = {
       profitUsd: profit,
       expensesUsd: totalExpenses,
+      profitDisplay: convertFromUsd(profit),
+      expensesDisplay: convertFromUsd(totalExpenses),
+      currency,
       totalHectares,
       flightCount: flights?.length || 0,
       bestClient,

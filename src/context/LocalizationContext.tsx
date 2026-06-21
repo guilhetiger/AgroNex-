@@ -1,7 +1,11 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Localization from 'expo-localization';
-import { USD_TO_CURRENCY } from '../constants/exchangeRates';
+import {
+  convertCurrency as convertCurrencyValue,
+  convertFromUsd as convertFromUsdValue,
+  convertToUsd as convertToUsdValue,
+} from '../constants/exchangeRates';
 import { CountryOption, CurrencyOption, LanguageOption, LocalizationState } from '../types/index';
 
 const STORAGE_KEY = 'AGRONEX_LOCALIZATION_PREFERENCES';
@@ -81,6 +85,7 @@ const LocalizationContext = createContext<LocalizationState>({
   formatCurrency: (value: number) => String(value),
   convertFromUsd: (value: number) => value,
   convertToUsd: (value: number) => value,
+  convertCurrency: (value: number) => value,
   formatDate: (date: string | Date) => String(date),
 });
 
@@ -104,7 +109,11 @@ export function LocalizationProvider({ children }: { children: React.ReactNode }
         return;
       }
 
-      const locale = (Localization as any).locale || 'es';
+      const tag =
+        Localization.getLocales?.()?.[0]?.languageTag ??
+        Localization.getLocales?.()?.[0]?.languageCode ??
+        'es';
+      const locale = String(tag).toLowerCase();
       if (locale.startsWith('pt')) {
         setLanguageState('pt');
         setCountryState('BR');
@@ -133,12 +142,14 @@ export function LocalizationProvider({ children }: { children: React.ReactNode }
 
   const value = useMemo(() => {
     const locale = countryDefaults[country].locale;
-    const rate = USD_TO_CURRENCY[currency] ?? 1;
 
-    const convertFromUsd = (amountUsd: number) => amountUsd * rate;
+    const convertFromUsd = (amountUsd: number) => convertFromUsdValue(amountUsd, currency);
 
     const convertToUsd = (amountInSelectedCurrency: number) =>
-      rate === 0 ? amountInSelectedCurrency : amountInSelectedCurrency / rate;
+      convertToUsdValue(amountInSelectedCurrency, currency);
+
+    const convertCurrency = (amount: number, from: CurrencyOption, to: CurrencyOption) =>
+      convertCurrencyValue(amount, from, to);
 
     const formatCurrency = (amountUsd: number) => {
       return new Intl.NumberFormat(locale, {
@@ -173,6 +184,7 @@ export function LocalizationProvider({ children }: { children: React.ReactNode }
       formatCurrency,
       convertFromUsd,
       convertToUsd,
+      convertCurrency,
       formatDate,
     };
   }, [language, currency, country]);

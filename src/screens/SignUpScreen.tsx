@@ -1,27 +1,35 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { KeyboardAwareScreen } from '@components/KeyboardAwareScreen';
 import { useAuth } from '@hooks/useAuth';
+import type { AuthStackParamList } from '@navigation/types';
 import { useTheme } from '@theme/ThemeProvider';
 
 export function SignUpScreen() {
   const { colors } = useTheme();
-  const { signUp } = useAuth();
-  const navigation = useNavigation<any>();
+  const { signUp, signInWithGoogle } = useAuth();
+  const navigation = useNavigation<NativeStackNavigationProp<AuthStackParamList, 'SignUp'>>();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
+  const [formSuccess, setFormSuccess] = useState('');
 
   const handleSignUp = async () => {
     setFormError('');
+    setFormSuccess('');
     setIsSubmitting(true);
     try {
-      await signUp(email, password, name);
+      const result = await signUp(email, password, name);
+      if (result?.needsEmailConfirmation) {
+        setFormSuccess(result.message || 'Cuenta creada correctamente. Revisa tu correo para confirmarla y luego inicia sesión.');
+      }
     } catch (error: any) {
       setFormError(error.message || 'No se pudo crear la cuenta. Revisa los datos.');
     } finally {
@@ -29,10 +37,21 @@ export function SignUpScreen() {
     }
   };
 
+  const handleGoogleSignUp = async () => {
+    setFormError('');
+    setFormSuccess('');
+    setIsGoogleSubmitting(true);
+    try {
+      await signInWithGoogle();
+    } catch (error: any) {
+      setFormError(error.message || 'No se pudo crear la cuenta con Google. Intenta de nuevo.');
+    } finally {
+      setIsGoogleSubmitting(false);
+    }
+  };
+
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboard}>
-        <View style={styles.content}>
+    <KeyboardAwareScreen contentContainerStyle={styles.content}>
           <View style={styles.brandBlock}>
             <View style={[styles.brandIcon, { backgroundColor: colors.primary + '18' }]}>
               <MaterialIcons name="workspace-premium" size={30} color={colors.primary} />
@@ -52,6 +71,7 @@ export function SignUpScreen() {
                 onChangeText={(value) => {
                   setName(value);
                   if (formError) setFormError('');
+                  if (formSuccess) setFormSuccess('');
                 }}
                 placeholder="Nombre o empresa"
                 placeholderTextColor={colors.onSurfaceSecondary}
@@ -68,6 +88,7 @@ export function SignUpScreen() {
                 onChangeText={(value) => {
                   setEmail(value);
                   if (formError) setFormError('');
+                  if (formSuccess) setFormSuccess('');
                 }}
                 placeholder="Correo electrónico"
                 placeholderTextColor={colors.onSurfaceSecondary}
@@ -86,6 +107,7 @@ export function SignUpScreen() {
                 onChangeText={(value) => {
                   setPassword(value);
                   if (formError) setFormError('');
+                  if (formSuccess) setFormSuccess('');
                 }}
                 placeholder="Contraseña"
                 placeholderTextColor={colors.onSurfaceSecondary}
@@ -107,18 +129,23 @@ export function SignUpScreen() {
                 <MaterialIcons name="error-outline" size={18} color={colors.error} />
                 <Text style={[styles.errorText, { color: colors.error }]}>{formError}</Text>
               </View>
+            ) : formSuccess ? (
+              <View style={[styles.successBox, { backgroundColor: colors.success + '14', borderColor: colors.success + '35' }]}>
+                <MaterialIcons name="mark-email-read" size={18} color={colors.success} />
+                <Text style={[styles.successText, { color: colors.success }]}>{formSuccess}</Text>
+              </View>
             ) : (
               <View style={[styles.securityNote, { backgroundColor: colors.primary + '10' }]}>
                 <MaterialIcons name="verified-user" size={17} color={colors.primary} />
-                <Text style={[styles.securityText, { color: colors.textSecondary }]}>Usa una contraseña de al menos 6 caracteres.</Text>
+                <Text style={[styles.securityText, { color: colors.textSecondary }]}>Usa una contraseña de al menos 8 caracteres.</Text>
               </View>
             )}
 
             <TouchableOpacity
               activeOpacity={0.84}
-              disabled={isSubmitting}
+              disabled={isSubmitting || isGoogleSubmitting}
               onPress={handleSignUp}
-              style={[styles.submitButton, { backgroundColor: colors.primary, opacity: isSubmitting ? 0.72 : 1 }]}
+              style={[styles.submitButton, { backgroundColor: colors.primary, opacity: isSubmitting || isGoogleSubmitting ? 0.72 : 1 }]}
             >
               {isSubmitting ? (
                 <ActivityIndicator color="#F8FFF9" />
@@ -127,13 +154,35 @@ export function SignUpScreen() {
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity activeOpacity={0.84} onPress={() => navigation.navigate('SignIn' as never)}>
-              <Text style={[styles.linkText, { color: colors.accent }]}>Ya tengo cuenta</Text>
+            <View style={styles.dividerContainer}>
+              <View style={[styles.divider, { backgroundColor: colors.border }]} />
+              <Text style={[styles.dividerText, { color: colors.textSecondary }]}>o</Text>
+              <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            </View>
+
+            <TouchableOpacity
+              activeOpacity={0.84}
+              disabled={isSubmitting || isGoogleSubmitting}
+              onPress={handleGoogleSignUp}
+              style={[styles.googleButton, { backgroundColor: colors.surface, borderColor: colors.border, opacity: isSubmitting || isGoogleSubmitting ? 0.72 : 1 }]}
+            >
+              {isGoogleSubmitting ? (
+                <ActivityIndicator color={colors.text} />
+              ) : (
+                <>
+                  <MaterialIcons name="g-mobiledata" size={20} color={colors.text} />
+                  <Text style={[styles.googleButtonText, { color: colors.text }]}>Crear con Google</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity activeOpacity={0.84} onPress={() => navigation.navigate('SignIn')}>
+              <Text style={[styles.linkText, { color: colors.accent }]}>
+                {formSuccess ? 'Ir a iniciar sesión' : 'Ya tengo cuenta'}
+              </Text>
             </TouchableOpacity>
           </View>
-        </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+    </KeyboardAwareScreen>
   );
 
   function FieldIcon({ name }: { name: keyof typeof MaterialIcons.glyphMap }) {
@@ -146,16 +195,8 @@ export function SignUpScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-  },
-  keyboard: {
-    flex: 1,
-  },
   content: {
-    flex: 1,
     justifyContent: 'center',
-    padding: 22,
     gap: 24,
   },
   brandBlock: {
@@ -235,6 +276,20 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     lineHeight: 18,
   },
+  successBox: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  successText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '800',
+    lineHeight: 18,
+  },
   securityNote: {
     borderRadius: 8,
     padding: 12,
@@ -262,6 +317,34 @@ const styles = StyleSheet.create({
   linkText: {
     textAlign: 'center',
     fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginVertical: 6,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+  },
+  dividerText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  googleButton: {
+    minHeight: 52,
+    borderWidth: 1,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  googleButtonText: {
+    fontSize: 15,
     fontWeight: '900',
     letterSpacing: 0,
   },

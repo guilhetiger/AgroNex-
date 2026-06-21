@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
 import {
   requestNotificationPermissions,
   scheduleFlightReminder,
@@ -17,6 +18,7 @@ export function useNotifications() {
 
   // Request permissions on mount
   useEffect(() => {
+    if (Platform.OS === 'web') return;
     requestPermissions();
     loadScheduledNotifications();
   }, []);
@@ -124,6 +126,7 @@ export function useNotificationListener() {
   const [lastNotification, setLastNotification] = useState<Notifications.Notification | null>(null);
 
   useEffect(() => {
+    if (Platform.OS === 'web') return;
     // Listen for notifications received while app is foregrounded
     const subscription = Notifications.addNotificationReceivedListener(notification => {
       setLastNotification(notification);

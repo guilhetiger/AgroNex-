@@ -1,17 +1,21 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
+import { FormTextInput } from '@components/ui/FormTextInput';
 import { GlassCard } from '@components/ui/GlassCard';
 import { SectionHeader } from '@components/ui/SectionHeader';
 import { useTheme } from '@theme/ThemeProvider';
 import { useCreateFlight, useFlights, useClients } from '@hooks/useData';
+import type { AppStackParamList } from '@navigation/types';
+import { parseDecimalInput } from '@utils/number';
 
 export function FlightsScreen() {
   const { colors } = useTheme();
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const { data: flights, isLoading: flightsLoading, error: flightsError, refetch: refetchFlights } = useFlights();
   const { data: clients } = useClients();
   const createFlightMutation = useCreateFlight();
@@ -77,29 +81,35 @@ export function FlightsScreen() {
   const selectedClientId = form.client_id || clients?.[0]?.id || '';
 
   const captureGpsRoute = async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Ubicación', 'Concede permiso de ubicación para guardar la ruta del vuelo.');
-      return;
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Ubicación', 'Concede permiso de ubicación para guardar la ruta del vuelo.');
+        return;
+      }
+      const loc =
+        (await Location.getLastKnownPositionAsync()) ??
+        (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }));
+      const lat = loc.coords.latitude;
+      const lng = loc.coords.longitude;
+      const coords = JSON.stringify([
+        { latitude: lat - 0.00028, longitude: lng - 0.00028 },
+        { latitude: lat, longitude: lng },
+        { latitude: lat + 0.00028, longitude: lng + 0.00028 },
+      ]);
+      setForm((c) => ({ ...c, route_coordinates: coords }));
+      Alert.alert('Listo', 'Se capturó la ruta GPS del punto actual.');
+    } catch {
+      Alert.alert('Ubicación', 'No se pudo capturar la ubicación. Revisa permisos y GPS.');
     }
-    const loc = await Location.getCurrentPositionAsync({});
-    const lat = loc.coords.latitude;
-    const lng = loc.coords.longitude;
-    const coords = JSON.stringify([
-      { latitude: lat - 0.00028, longitude: lng - 0.00028 },
-      { latitude: lat, longitude: lng },
-      { latitude: lat + 0.00028, longitude: lng + 0.00028 },
-    ]);
-    setForm((c) => ({ ...c, route_coordinates: coords }));
-    Alert.alert('Listo', 'Se capturó la ruta GPS del punto actual.');
   };
 
   const handleCreateFlight = async () => {
     if (!selectedClientId) return;
     await createFlightMutation.mutateAsync({
       client_id: selectedClientId,
-      area_covered: Number(form.area_covered) || 0,
-      duration: Number(form.duration) || 0,
+      area_covered: parseDecimalInput(form.area_covered),
+      duration: parseDecimalInput(form.duration),
       date: new Date().toISOString(),
       farm_name: form.farm_name.trim() || null,
       route_coordinates: form.route_coordinates.trim() || null,
@@ -131,87 +141,90 @@ export function FlightsScreen() {
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]} edges={['top']}>
-      <ScrollView
+      <FlatList
+        data={flights || []}
+        keyExtractor={(item) => item.id}
         contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetchFlights} tintColor={colors.primary} />}
-      >
-        <SectionHeader title="Vuelos" subtitle="Operación aérea" />
+        ListHeaderComponent={
+          <View style={{ gap: 14 }}>
+            <SectionHeader title="Vuelos" subtitle="Operación aérea" />
 
-        <View style={styles.summaryGrid}>
-          <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Cobertura</Text>
-            <Text style={[styles.summaryValue, { color: colors.primary }]}>{totalArea} ha</Text>
-          </View>
-          <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Tiempo</Text>
-            <Text style={[styles.summaryValue, { color: colors.accent }]}>{formatDuration(totalMinutes)}</Text>
-          </View>
-        </View>
-        <TouchableOpacity activeOpacity={0.84} onPress={() => setCreateOpen(true)} style={[styles.createButton, { backgroundColor: colors.primary }]}>
-          <MaterialIcons name="add-location-alt" size={20} color="#F8FFF9" />
-          <Text style={styles.createButtonText}>Registrar vuelo</Text>
-        </TouchableOpacity>
-
-        {flights && flights.length > 0 ? (
-          flights.map((flight) => (
-            <TouchableOpacity
-              key={flight.id}
-              activeOpacity={0.84}
-              onPress={() => navigation.navigate('FlightDetail' as never, { flightId: flight.id } as never)}
-            >
-              <GlassCard style={styles.flightCard}>
-                <View style={styles.flightTop}>
-                  <View style={[styles.flightIcon, { backgroundColor: colors.primary + '16' }]}>
-                    <MaterialIcons name="flight-takeoff" size={24} color={colors.primary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.flightTitle, { color: colors.text }]}>Vuelo {flight.id.slice(-4).toUpperCase()}</Text>
-                    <Text style={[styles.flightClient, { color: colors.textSecondary }]}>{getClientName(flight.client_id)}</Text>
-                    {flight.farm_name ? (
-                      <Text style={{ color: colors.accent, fontSize: 12, fontWeight: '800', marginTop: 4 }}>{flight.farm_name}</Text>
-                    ) : null}
-                  </View>
-                  <MaterialIcons name="chevron-right" size={28} color={colors.onSurfaceSecondary} />
-                </View>
-
-                <View style={styles.flightMetrics}>
-                  <View>
-                    <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Área</Text>
-                    <Text style={[styles.metricValue, { color: colors.text }]}>{flight.area_covered} ha</Text>
-                  </View>
-                  <View>
-                    <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Duración</Text>
-                    <Text style={[styles.metricValue, { color: colors.text }]}>{formatDuration(flight.duration)}</Text>
-                  </View>
-                  <View>
-                    <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Clima</Text>
-                    <Text style={[styles.metricValue, { color: colors.text }]}>{flight.weather || 'Sin dato'}</Text>
-                  </View>
-                </View>
-
-                <Text style={[styles.flightDate, { color: colors.accent }]}>{formatDate(flight.date)}</Text>
-              </GlassCard>
+            <View style={styles.summaryGrid}>
+              <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Cobertura</Text>
+                <Text style={[styles.summaryValue, { color: colors.primary }]}>{totalArea} ha</Text>
+              </View>
+              <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Tiempo</Text>
+                <Text style={[styles.summaryValue, { color: colors.accent }]}>{formatDuration(totalMinutes)}</Text>
+              </View>
+            </View>
+            <TouchableOpacity activeOpacity={0.84} onPress={() => setCreateOpen(true)} style={[styles.createButton, { backgroundColor: colors.primary }]}>
+              <MaterialIcons name="add-location-alt" size={20} color="#F8FFF9" />
+              <Text style={styles.createButtonText}>Registrar vuelo</Text>
             </TouchableOpacity>
-          ))
-        ) : (
+          </View>
+        }
+        renderItem={({ item: flight }) => (
+          <TouchableOpacity
+            activeOpacity={0.84}
+            onPress={() => navigation.navigate('FlightDetail', { flightId: flight.id })}
+          >
+            <GlassCard style={styles.flightCard}>
+              <View style={styles.flightTop}>
+                <View style={[styles.flightIcon, { backgroundColor: colors.primary + '16' }]}>
+                  <MaterialIcons name="flight-takeoff" size={24} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.flightTitle, { color: colors.text }]}>Vuelo {flight.id.slice(-4).toUpperCase()}</Text>
+                  <Text style={[styles.flightClient, { color: colors.textSecondary }]}>{getClientName(flight.client_id)}</Text>
+                  {flight.farm_name ? (
+                    <Text style={{ color: colors.accent, fontSize: 12, fontWeight: '800', marginTop: 4 }}>{flight.farm_name}</Text>
+                  ) : null}
+                </View>
+                <MaterialIcons name="chevron-right" size={28} color={colors.onSurfaceSecondary} />
+              </View>
+
+              <View style={styles.flightMetrics}>
+                <View>
+                  <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Área</Text>
+                  <Text style={[styles.metricValue, { color: colors.text }]}>{flight.area_covered} ha</Text>
+                </View>
+                <View>
+                  <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Duración</Text>
+                  <Text style={[styles.metricValue, { color: colors.text }]}>{formatDuration(flight.duration)}</Text>
+                </View>
+                <View>
+                  <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Clima</Text>
+                  <Text style={[styles.metricValue, { color: colors.text }]}>{flight.weather || 'Sin dato'}</Text>
+                </View>
+              </View>
+
+              <Text style={[styles.flightDate, { color: colors.accent }]}>{formatDate(flight.date)}</Text>
+            </GlassCard>
+          </TouchableOpacity>
+        )}
+        ListEmptyComponent={
           <GlassCard style={styles.emptyCard}>
             <Text style={[styles.emptyTitle, { color: colors.text }]}>Sin vuelos registrados</Text>
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
               Registra un vuelo para comenzar a ver rutas, cobertura y métricas operativas.
             </Text>
           </GlassCard>
-        )}
-      </ScrollView>
+        }
+      />
       <Modal visible={isCreateOpen} animationType="slide" transparent onRequestClose={() => setCreateOpen(false)}>
         <View style={styles.modalBackdrop}>
-          <View style={[styles.modalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.modalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>Registrar vuelo</Text>
               <TouchableOpacity onPress={() => setCreateOpen(false)}>
                 <MaterialIcons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
-            <ScrollView contentContainerStyle={styles.formGrid}>
+            <ScrollView contentContainerStyle={styles.formGrid} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
               <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Cliente</Text>
               <View style={styles.clientPicker}>
                 {(clients || []).map((client) => {
@@ -228,7 +241,7 @@ export function FlightsScreen() {
                   );
                 })}
               </View>
-              <Input label="Finca / talhão" value={form.farm_name} onChangeText={(value) => setForm((current) => ({ ...current, farm_name: value }))} />
+              <FormTextInput label="Finca / talhão" value={form.farm_name} onChangeText={(value) => setForm((current) => ({ ...current, farm_name: value }))} />
               <TouchableOpacity
                 activeOpacity={0.84}
                 onPress={captureGpsRoute}
@@ -236,32 +249,25 @@ export function FlightsScreen() {
               >
                 <Text style={[styles.gpsButtonText, { color: colors.accent }]}>Capturar ruta GPS actual</Text>
               </TouchableOpacity>
-              <Input label="Tiempo de vuelo min" value={form.duration} onChangeText={(value) => setForm((current) => ({ ...current, duration: value }))} keyboardType="numeric" />
-              <Input label="Dron utilizado" value={form.drone} onChangeText={(value) => setForm((current) => ({ ...current, drone: value }))} />
-              <Input label="Piloto responsable" value={form.pilot} onChangeText={(value) => setForm((current) => ({ ...current, pilot: value }))} />
-              <Input label="Clima" value={form.weather} onChangeText={(value) => setForm((current) => ({ ...current, weather: value }))} />
-              <Input label="Viento" value={form.wind} onChangeText={(value) => setForm((current) => ({ ...current, wind: value }))} />
-              <Input label="Batería utilizada" value={form.battery_usage} onChangeText={(value) => setForm((current) => ({ ...current, battery_usage: value }))} />
-              <Input label="Consumo" value={form.consumption} onChangeText={(value) => setForm((current) => ({ ...current, consumption: value }))} />
-              <Input label="Observaciones" value={form.notes} onChangeText={(value) => setForm((current) => ({ ...current, notes: value }))} />
+              <FormTextInput label="Área cubierta ha" value={form.area_covered} onChangeText={(value) => setForm((current) => ({ ...current, area_covered: value }))} keyboardType="decimal-pad" />
+              <FormTextInput label="Tiempo de vuelo min" value={form.duration} onChangeText={(value) => setForm((current) => ({ ...current, duration: value }))} keyboardType="decimal-pad" />
+              <FormTextInput label="Dron utilizado" value={form.drone} onChangeText={(value) => setForm((current) => ({ ...current, drone: value }))} />
+              <FormTextInput label="Piloto responsable" value={form.pilot} onChangeText={(value) => setForm((current) => ({ ...current, pilot: value }))} />
+              <FormTextInput label="Clima" value={form.weather} onChangeText={(value) => setForm((current) => ({ ...current, weather: value }))} />
+              <FormTextInput label="Viento" value={form.wind} onChangeText={(value) => setForm((current) => ({ ...current, wind: value }))} />
+              <FormTextInput label="Batería utilizada" value={form.battery_usage} onChangeText={(value) => setForm((current) => ({ ...current, battery_usage: value }))} />
+              <FormTextInput label="Consumo" value={form.consumption} onChangeText={(value) => setForm((current) => ({ ...current, consumption: value }))} />
+              <FormTextInput label="Observaciones" value={form.notes} onChangeText={(value) => setForm((current) => ({ ...current, notes: value }))} multiline />
             </ScrollView>
             <TouchableOpacity activeOpacity={0.84} disabled={createFlightMutation.isPending || !selectedClientId} onPress={handleCreateFlight} style={[styles.saveButton, { backgroundColor: colors.primary, opacity: createFlightMutation.isPending ? 0.7 : 1 }]}>
               <Text style={styles.saveButtonText}>{createFlightMutation.isPending ? 'Guardando...' : 'Guardar vuelo'}</Text>
             </TouchableOpacity>
-          </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
     </SafeAreaView>
   );
 
-  function Input({ label, value, onChangeText, keyboardType }: { label: string; value: string; onChangeText: (value: string) => void; keyboardType?: 'default' | 'numeric' }) {
-    return (
-      <View style={styles.inputBlock}>
-        <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>{label}</Text>
-        <TextInput value={value} onChangeText={onChangeText} keyboardType={keyboardType || 'default'} placeholder={label} placeholderTextColor={colors.onSurfaceSecondary} style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]} />
-      </View>
-    );
-  }
 }
 
 const styles = StyleSheet.create({

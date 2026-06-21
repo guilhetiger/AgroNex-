@@ -1,19 +1,22 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { KeyboardAwareScreen } from '@components/KeyboardAwareScreen';
 import { useAuth } from '@hooks/useAuth';
+import type { AuthStackParamList } from '@navigation/types';
 import { useTheme } from '@theme/ThemeProvider';
 
 export function SignInScreen() {
   const { colors } = useTheme();
-  const { signIn } = useAuth();
-  const navigation = useNavigation<any>();
+  const { signIn, signInWithGoogle } = useAuth();
+  const navigation = useNavigation<NativeStackNavigationProp<AuthStackParamList, 'SignIn'>>();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
 
   const handleSignIn = async () => {
@@ -28,10 +31,20 @@ export function SignInScreen() {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    setFormError('');
+    setIsGoogleSubmitting(true);
+    try {
+      await signInWithGoogle();
+    } catch (error: any) {
+      setFormError(error.message || 'No se pudo iniciar sesión con Google. Intenta de nuevo.');
+    } finally {
+      setIsGoogleSubmitting(false);
+    }
+  };
+
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboard}>
-        <View style={styles.content}>
+    <KeyboardAwareScreen contentContainerStyle={styles.content}>
           <View style={styles.brandBlock}>
             <View style={[styles.brandIcon, { backgroundColor: colors.primary + '18' }]}>
               <MaterialIcons name="flight-takeoff" size={30} color={colors.primary} />
@@ -99,9 +112,9 @@ export function SignInScreen() {
 
             <TouchableOpacity
               activeOpacity={0.84}
-              disabled={isSubmitting}
+              disabled={isSubmitting || isGoogleSubmitting}
               onPress={handleSignIn}
-              style={[styles.submitButton, { backgroundColor: colors.primary, opacity: isSubmitting ? 0.72 : 1 }]}
+              style={[styles.submitButton, { backgroundColor: colors.primary, opacity: isSubmitting || isGoogleSubmitting ? 0.72 : 1 }]}
             >
               {isSubmitting ? (
                 <ActivityIndicator color="#F8FFF9" />
@@ -110,16 +123,36 @@ export function SignInScreen() {
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity activeOpacity={0.84} onPress={() => navigation.navigate('SignUp' as never)}>
+            <View style={styles.dividerContainer}>
+              <View style={[styles.divider, { backgroundColor: colors.border }]} />
+              <Text style={[styles.dividerText, { color: colors.textSecondary }]}>o</Text>
+              <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            </View>
+
+            <TouchableOpacity
+              activeOpacity={0.84}
+              disabled={isSubmitting || isGoogleSubmitting}
+              onPress={handleGoogleSignIn}
+              style={[styles.googleButton, { backgroundColor: colors.surface, borderColor: colors.border, opacity: isSubmitting || isGoogleSubmitting ? 0.72 : 1 }]}
+            >
+              {isGoogleSubmitting ? (
+                <ActivityIndicator color={colors.text} />
+              ) : (
+                <>
+                  <MaterialIcons name="g-mobiledata" size={20} color={colors.text} />
+                  <Text style={[styles.googleButtonText, { color: colors.text }]}>Entrar con Google</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity activeOpacity={0.84} onPress={() => navigation.navigate('SignUp')}>
               <Text style={[styles.linkText, { color: colors.accent }]}>Crear una cuenta nueva</Text>
             </TouchableOpacity>
-            <TouchableOpacity activeOpacity={0.84} onPress={() => navigation.navigate('ForgotPassword' as never)}>
+            <TouchableOpacity activeOpacity={0.84} onPress={() => navigation.navigate('ForgotPassword')}>
               <Text style={[styles.secondaryLinkText, { color: colors.textSecondary }]}>Olvidé mi contraseña</Text>
             </TouchableOpacity>
           </View>
-        </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+    </KeyboardAwareScreen>
   );
 
   function FieldIcon({ name }: { name: keyof typeof MaterialIcons.glyphMap }) {
@@ -132,16 +165,8 @@ export function SignInScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-  },
-  keyboard: {
-    flex: 1,
-  },
   content: {
-    flex: 1,
     justifyContent: 'center',
-    padding: 22,
     gap: 24,
   },
   brandBlock: {
@@ -255,6 +280,34 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 13,
     fontWeight: '800',
+    letterSpacing: 0,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginVertical: 6,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+  },
+  dividerText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  googleButton: {
+    minHeight: 52,
+    borderWidth: 1,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  googleButtonText: {
+    fontSize: 15,
+    fontWeight: '900',
     letterSpacing: 0,
   },
 });

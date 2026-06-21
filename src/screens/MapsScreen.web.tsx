@@ -1,14 +1,16 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ScrollView, StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { GlassCard } from '@components/ui/GlassCard';
 import { SectionHeader } from '@components/ui/SectionHeader';
 import { useTheme } from '@theme/ThemeProvider';
 import { useCurrentWeather, useFlightRecommendation } from '@hooks/useWeather';
 import { useFlights, useClients } from '@hooks/useData';
+import type { AppStackParamList } from '@navigation/types';
 
 export function MapsScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const { colors, radii } = useTheme();
   const farmLocation = { latitude: -16.4897, longitude: -68.1193 };
   const { data: weather, isLoading: weatherLoading } = useCurrentWeather(farmLocation.latitude, farmLocation.longitude);

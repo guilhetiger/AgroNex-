@@ -41,7 +41,8 @@ export function useOfflineSync() {
       if (hasSupabaseConfig) {
         const pending = await getPendingSyncRecords();
         for (const record of pending) {
-          const payload = JSON.parse(record.payload);
+          const payload =
+            typeof record.payload === 'string' ? JSON.parse(record.payload) : record.payload;
           try {
             if (record.table_name === 'clients') {
               await supabase.from('clients').insert(payload);
@@ -57,12 +58,11 @@ export function useOfflineSync() {
             console.warn('Sync failed for record', record.id, error);
           }
         }
+        const ts = new Date().toISOString();
+        await AsyncStorage.setItem(LAST_SYNC_KEY, ts);
+        setLastSyncedAt(ts);
+        await invalidateAllLists();
       }
-
-      const ts = new Date().toISOString();
-      await AsyncStorage.setItem(LAST_SYNC_KEY, ts);
-      setLastSyncedAt(ts);
-      await invalidateAllLists();
     } catch (error) {
       console.warn('Offline sync failed', error);
     } finally {

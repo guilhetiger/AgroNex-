@@ -1,37 +1,43 @@
-import { Dimensions, ScrollView, View, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
+import { ScrollView, View, ActivityIndicator, Text, TouchableOpacity, useWindowDimensions } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LineChart } from 'react-native-chart-kit';
 import { GlassCard } from '@components/ui/GlassCard';
 import { MetricBadge } from '@components/ui/MetricBadge';
 import { SectionHeader } from '@components/ui/SectionHeader';
+import { AiDashboardWidgets } from '@components/ai/AiDashboardWidgets';
 import { useTheme } from '@theme/ThemeProvider';
 import { useClients, useFlights, useFarms, useExpenses } from '@hooks/useData';
 import { useLocalization } from '@context/LocalizationContext';
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSync } from '@context/SyncContext';
 import { useAI } from '@hooks/useAI';
+import type { AppStackParamList } from '@navigation/types';
+import { getAppliedHectares, getExpensesUsd, getPipelineHectares, getProfitUsd, getRevenueUsd } from '@services/financial';
 
-const chartWidth = Dimensions.get('window').width - 48;
+type QuickActionRoute = 'Reports' | 'Agrochemicals' | 'Expenses' | 'AgroChat' | 'IntelligentReports' | 'OcrExpense';
 
 export function DashboardScreen() {
   const { colors, radii } = useTheme();
+  const { width } = useWindowDimensions();
   const { formatCurrency, convertFromUsd, t, country, formatDate } = useLocalization();
   const { isSyncing, lastSyncedAt } = useSync();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const { data: clients, isLoading: clientsLoading } = useClients();
   const { data: flights, isLoading: flightsLoading } = useFlights();
   const { data: farms, isLoading: farmsLoading } = useFarms();
   const { data: expenses, isLoading: expensesLoading } = useExpenses();
 
   const isLoading = clientsLoading || flightsLoading || farmsLoading || expensesLoading;
-  const totalHectares = clients?.reduce((sum, client) => sum + client.area, 0) || 0;
+  const totalHectares = getPipelineHectares(clients || []);
   const totalFlights = flights?.length || 0;
   const totalClients = clients?.length || 0;
   const totalFarms = farms?.length || 0;
-  const estimatedRevenue = totalHectares * 110;
-  const estimatedCosts = totalFlights * 95;
-  const netProfit = estimatedRevenue - estimatedCosts;
-  const totalFlightHa = flights?.reduce((s, f) => s + f.area_covered, 0) || 0;
+  const totalFlightHa = getAppliedHectares(flights || []);
+  const estimatedRevenue = getRevenueUsd(totalFlightHa);
+  const estimatedCosts = getExpensesUsd(expenses || []);
+  const netProfit = getProfitUsd(estimatedRevenue, estimatedCosts);
+  const chartWidth = Math.max(280, Math.min(width - 48, 720));
 
   const aiInsights = useAI(null, flights || [], expenses || [], country);
 
@@ -175,6 +181,9 @@ export function DashboardScreen() {
                   <Text style={{ color: colors.textSecondary, fontSize: 11, marginTop: 6, lineHeight: 16 }}>
                     {aiInsights.price?.explanation}
                   </Text>
+                  <Text style={{ color: colors.textSecondary, fontSize: 11, marginTop: 4 }}>
+                    Costo estimado/ha: {formatCurrency(aiInsights.price?.estimatedCostPerHectare || 0)}
+                  </Text>
                 </View>
                 <View
                   style={{
@@ -193,18 +202,25 @@ export function DashboardScreen() {
         </GlassCard>
       </Animated.View>
 
+      <Animated.View entering={FadeInDown.duration(420).delay(180)}>
+        <AiDashboardWidgets />
+      </Animated.View>
+
       <Animated.View entering={FadeInDown.duration(420).delay(200)}>
         <GlassCard>
           <Text style={{ color: colors.text, marginBottom: 14, fontSize: 16, fontWeight: '800' }}>Accesos rápidos</Text>
           <View style={{ gap: 12 }}>
-            {[
+            {([
               { title: 'Reportes automáticos', screen: 'Reports', emoji: '📈' },
+              { title: 'AgroChat inteligente', screen: 'AgroChat', emoji: '🤖' },
+              { title: 'Reportes IA avanzados', screen: 'IntelligentReports', emoji: '🧠' },
+              { title: 'OCR de gastos', screen: 'OcrExpense', emoji: '🧾' },
               { title: 'Inventario de agroquímicos', screen: 'Agrochemicals', emoji: '🧪' },
               { title: 'Control de gastos', screen: 'Expenses', emoji: '💸' },
-            ].map((item) => (
+            ] satisfies Array<{ title: string; screen: QuickActionRoute; emoji: string }>).map((item) => (
               <TouchableOpacity
                 key={item.title}
-                onPress={() => navigation.navigate(item.screen as never)}
+                onPress={() => navigation.navigate(item.screen)}
                 activeOpacity={0.7}
                 style={{
                   backgroundColor: colors.surfaceMuted,

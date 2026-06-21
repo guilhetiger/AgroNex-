@@ -1,5 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GlassCard } from '@components/ui/GlassCard';
@@ -8,17 +9,19 @@ import { useTheme } from '@theme/ThemeProvider';
 import { useFlights, useClients } from '@hooks/useData';
 import { useLocalization } from '@context/LocalizationContext';
 import { parseRoutePolyline } from '@utils/geo';
+import type { AppStackParamList } from '@navigation/types';
 
-type FlightDetailRoute = RouteProp<Record<string, { flightId: string }>, string>;
+type FlightDetailRoute = RouteProp<AppStackParamList, 'FlightDetail'>;
 
 export function FlightDetailScreen() {
   const route = useRoute<FlightDetailRoute>();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList, 'FlightDetail'>>();
   const { colors, radii } = useTheme();
   const { formatDate } = useLocalization();
   const { data: flights, isLoading } = useFlights();
   const { data: clients } = useClients();
-  const flight = flights?.find((item) => item.id === route.params.flightId);
+  const flightId = route.params?.flightId;
+  const flight = flights?.find((item) => item.id === flightId);
   const client = clients?.find((c) => c.id === flight?.client_id);
   const pts = parseRoutePolyline(flight?.route_coordinates);
 
@@ -29,7 +32,7 @@ export function FlightDetailScreen() {
 
   const goBack = () => {
     if (navigation.canGoBack()) navigation.goBack();
-    else navigation.navigate('MainTab' as never);
+    else navigation.navigate('MainTab', { screen: 'Flights' });
   };
 
   if (isLoading || !flights) {

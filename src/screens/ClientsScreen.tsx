@@ -1,17 +1,21 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Modal, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { FormTextInput } from '@components/ui/FormTextInput';
 import { GlassCard } from '@components/ui/GlassCard';
 import { SectionHeader } from '@components/ui/SectionHeader';
 import { useTheme } from '@theme/ThemeProvider';
 import { useClients, useCreateClient, useDeleteClient, useExpenses, useFlights } from '@hooks/useData';
+import type { AppStackParamList } from '@navigation/types';
 import { getClientScore } from '@services/aiService';
+import { parseDecimalInput } from '@utils/number';
 
 export function ClientsScreen() {
   const { colors } = useTheme();
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const { data: clients, isLoading, error, refetch } = useClients();
   const { data: flights } = useFlights();
   const { data: expenses } = useExpenses();
@@ -31,6 +35,13 @@ export function ClientsScreen() {
     field_polygon: '',
     internal_notes: '',
   });
+  const flightsByClient = useMemo(() => {
+    const grouped = new Map<string, NonNullable<typeof flights>>();
+    for (const flight of flights || []) {
+      grouped.set(flight.client_id, [...(grouped.get(flight.client_id) || []), flight]);
+    }
+    return grouped;
+  }, [flights]);
 
   const handleCreateClient = async () => {
     await createClientMutation.mutateAsync({
@@ -39,11 +50,11 @@ export function ClientsScreen() {
       phone: form.phone.trim(),
       whatsapp: form.whatsapp.trim(),
       crop: form.crop.trim() || 'Cultivo general',
-      area: Number(form.area) || 0,
+      area: parseDecimalInput(form.area),
       location: form.location.trim() || 'Ubicación pendiente',
       status: 'active',
-      latitude: form.latitude.trim() ? Number(form.latitude) : null,
-      longitude: form.longitude.trim() ? Number(form.longitude) : null,
+      latitude: form.latitude.trim() ? parseDecimalInput(form.latitude) : null,
+      longitude: form.longitude.trim() ? parseDecimalInput(form.longitude) : null,
       field_polygon: form.field_polygon.trim() || null,
       internal_notes: form.internal_notes.trim() || null,
     });
@@ -87,6 +98,7 @@ export function ClientsScreen() {
         data={clients || []}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
+        keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.primary} />}
         ListHeaderComponent={
           <View>
@@ -111,7 +123,7 @@ export function ClientsScreen() {
           </View>
         }
         renderItem={({ item }) => {
-          const clientFlights = flights?.filter((flight) => flight.client_id === item.id) || [];
+          const clientFlights = flightsByClient.get(item.id) || [];
           const clientScore = getClientScore(item, clientFlights, expenses || []);
           const scoreColor =
             clientScore.category === 'good' ? colors.success : clientScore.category === 'average' ? colors.warning : colors.error;
@@ -121,7 +133,7 @@ export function ClientsScreen() {
           return (
             <TouchableOpacity
               activeOpacity={0.84}
-              onPress={() => navigation.navigate('ClientDetail' as never, { clientId: item.id } as never)}
+              onPress={() => navigation.navigate('ClientDetail', { clientId: item.id })}
             >
               <GlassCard style={styles.clientCard}>
                 <View style={styles.cardHeader}>
@@ -170,30 +182,31 @@ export function ClientsScreen() {
       />
       <Modal visible={isCreateOpen} animationType="slide" transparent onRequestClose={() => setCreateOpen(false)}>
         <View style={styles.modalBackdrop}>
-          <View style={[styles.modalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.modalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>Nuevo cliente</Text>
               <TouchableOpacity onPress={() => setCreateOpen(false)}>
                 <MaterialIcons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
-            <View style={styles.formGrid}>
-              <Input label="Finca/Hacienda" value={form.name} onChangeText={(value) => setForm((current) => ({ ...current, name: value }))} />
-              <Input label="Responsable" value={form.manager} onChangeText={(value) => setForm((current) => ({ ...current, manager: value }))} />
-              <Input label="Teléfono" value={form.phone} onChangeText={(value) => setForm((current) => ({ ...current, phone: value }))} keyboardType="phone-pad" />
-              <Input label="WhatsApp" value={form.whatsapp} onChangeText={(value) => setForm((current) => ({ ...current, whatsapp: value }))} keyboardType="phone-pad" />
-              <Input label="Cultivo" value={form.crop} onChangeText={(value) => setForm((current) => ({ ...current, crop: value }))} />
-              <Input label="Hectáreas" value={form.area} onChangeText={(value) => setForm((current) => ({ ...current, area: value }))} keyboardType="numeric" />
-              <Input label="Ubicación (texto)" value={form.location} onChangeText={(value) => setForm((current) => ({ ...current, location: value }))} />
-              <Input label="Latitud (opcional)" value={form.latitude} onChangeText={(value) => setForm((current) => ({ ...current, latitude: value }))} keyboardType="numeric" />
-              <Input label="Longitud (opcional)" value={form.longitude} onChangeText={(value) => setForm((current) => ({ ...current, longitude: value }))} keyboardType="numeric" />
-              <Input
+            <ScrollView contentContainerStyle={styles.formGrid} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+              <FormTextInput label="Finca/Hacienda" value={form.name} onChangeText={(value) => setForm((current) => ({ ...current, name: value }))} />
+              <FormTextInput label="Responsable" value={form.manager} onChangeText={(value) => setForm((current) => ({ ...current, manager: value }))} />
+              <FormTextInput label="Teléfono" value={form.phone} onChangeText={(value) => setForm((current) => ({ ...current, phone: value }))} keyboardType="phone-pad" />
+              <FormTextInput label="WhatsApp" value={form.whatsapp} onChangeText={(value) => setForm((current) => ({ ...current, whatsapp: value }))} keyboardType="phone-pad" />
+              <FormTextInput label="Cultivo" value={form.crop} onChangeText={(value) => setForm((current) => ({ ...current, crop: value }))} />
+              <FormTextInput label="Hectáreas" value={form.area} onChangeText={(value) => setForm((current) => ({ ...current, area: value }))} keyboardType="decimal-pad" />
+              <FormTextInput label="Ubicación (texto)" value={form.location} onChangeText={(value) => setForm((current) => ({ ...current, location: value }))} />
+              <FormTextInput label="Latitud (opcional)" value={form.latitude} onChangeText={(value) => setForm((current) => ({ ...current, latitude: value }))} keyboardType="decimal-pad" />
+              <FormTextInput label="Longitud (opcional)" value={form.longitude} onChangeText={(value) => setForm((current) => ({ ...current, longitude: value }))} keyboardType="decimal-pad" />
+              <FormTextInput
                 label="Polígono del lote (JSON)"
                 value={form.field_polygon}
                 onChangeText={(value) => setForm((current) => ({ ...current, field_polygon: value }))}
+                multiline
               />
-              <Input label="Notas internas" value={form.internal_notes} onChangeText={(value) => setForm((current) => ({ ...current, internal_notes: value }))} />
-            </View>
+              <FormTextInput label="Notas internas" value={form.internal_notes} onChangeText={(value) => setForm((current) => ({ ...current, internal_notes: value }))} multiline />
+            </ScrollView>
             <TouchableOpacity
               activeOpacity={0.84}
               disabled={createClientMutation.isPending}
@@ -202,27 +215,12 @@ export function ClientsScreen() {
             >
               <Text style={styles.saveButtonText}>{createClientMutation.isPending ? 'Guardando...' : 'Guardar cliente'}</Text>
             </TouchableOpacity>
-          </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
     </SafeAreaView>
   );
 
-  function Input({ label, value, onChangeText, keyboardType }: { label: string; value: string; onChangeText: (value: string) => void; keyboardType?: 'default' | 'numeric' | 'phone-pad' }) {
-    return (
-      <View style={styles.inputBlock}>
-        <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>{label}</Text>
-        <TextInput
-          value={value}
-          onChangeText={onChangeText}
-          keyboardType={keyboardType || 'default'}
-          placeholder={label}
-          placeholderTextColor={colors.onSurfaceSecondary}
-          style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
-        />
-      </View>
-    );
-  }
 }
 
 const styles = StyleSheet.create({

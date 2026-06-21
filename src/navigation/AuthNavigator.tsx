@@ -4,8 +4,9 @@ import { SignUpScreen } from '@screens/SignUpScreen';
 import { WelcomeScreen } from '@screens/WelcomeScreen';
 import { OnboardingScreen } from '@screens/OnboardingScreen';
 import { ForgotPasswordScreen } from '@screens/ForgotPasswordScreen';
+import type { AuthStackParamList } from './types';
 
-const Stack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator<AuthStackParamList>();
 
 export function AuthNavigator() {
   return (

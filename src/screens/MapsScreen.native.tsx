@@ -1,25 +1,39 @@
-import { useMemo, useState } from 'react';
-import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import MapView, { Marker, Polygon, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import { MaterialIcons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useMemo } from 'react';
+import { Platform, ScrollView, StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import MapView, { Marker, Polygon, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { GlassCard } from '@components/ui/GlassCard';
 import { SectionHeader } from '@components/ui/SectionHeader';
 import { useTheme } from '@theme/ThemeProvider';
 import { useCurrentWeather, useFlightRecommendation } from '@hooks/useWeather';
 import { useFlights, useClients } from '@hooks/useData';
-import { parseFieldPolygon, parseRoutePolyline } from '@utils/geo';
+import type { AppStackParamList } from '@navigation/types';
 
-const { height } = Dimensions.get('window');
+type Coordinate = {
+  latitude: number;
+  longitude: number;
+};
 
-const fallbackPolygon = [
-  { latitude: -16.486, longitude: -68.122 },
-  { latitude: -16.491, longitude: -68.117 },
-  { latitude: -16.492, longitude: -68.123 },
-  { latitude: -16.486, longitude: -68.122 },
-];
+const extra = (Constants.expoConfig?.extra ?? {}) as Record<string, string | undefined>;
+const androidMapsKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY || extra.expoPublicGoogleMapsAndroidApiKey || '';
+
+function parseCoordinates(value: unknown): Coordinate[] {
+  try {
+    const raw = typeof value === 'string' ? JSON.parse(value) : value;
+    if (!Array.isArray(raw)) return [];
+    return raw.filter((item): item is Coordinate =>
+      Number.isFinite(item?.latitude) && Number.isFinite(item?.longitude)
+    );
+  } catch {
+    return [];
+  }
+}
 
 export function MapsScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const { colors, radii } = useTheme();
   const farmLocation = { latitude: -16.4897, longitude: -68.1193 };
   const { data: weather, isLoading: weatherLoading } = useCurrentWeather(farmLocation.latitude, farmLocation.longitude);
@@ -27,239 +41,163 @@ export function MapsScreen() {
   const { data: flights } = useFlights();
   const { data: clients } = useClients();
 
-  const [mapType, setMapType] = useState<'standard' | 'satellite' | 'mutedStandard'>('mutedStandard');
-  const [showRoutes, setShowRoutes] = useState(true);
-  const [showZones, setShowZones] = useState(true);
-
   const totalArea = flights?.reduce((sum, flight) => sum + flight.area_covered, 0) || 0;
   const totalMinutes = flights?.reduce((sum, flight) => sum + flight.duration, 0) || 0;
-
-  const flightPaths = useMemo(() => {
-    if (!flights?.length) return [] as { id: string; coordinates: { latitude: number; longitude: number }[]; color: string }[];
-    return flights
-      .map((f) => {
-        const coords = parseRoutePolyline(f.route_coordinates);
-        if (!coords) return null;
-        return { id: f.id, coordinates: coords, color: colors.primary };
-      })
-      .filter(Boolean) as { id: string; coordinates: { latitude: number; longitude: number }[]; color: string }[];
-  }, [flights, colors.primary]);
-
-  const clientPolygons = useMemo(() => {
-    if (!clients?.length) return [] as { id: string; coordinates: { latitude: number; longitude: number }[] }[];
-    return clients
-      .map((c) => {
-        const ring = parseFieldPolygon(c.field_polygon);
-        if (!ring) return null;
-        return { id: c.id, coordinates: ring };
-      })
-      .filter(Boolean) as { id: string; coordinates: { latitude: number; longitude: number }[] }[];
-  }, [clients]);
-
-  const polygonsToRender =
-    showZones && clientPolygons.length > 0
-      ? clientPolygons
-      : showZones
-        ? [{ id: 'fallback', coordinates: fallbackPolygon }]
-        : [];
-
-  const getRiskColor = (riskLevel: string) => {
-    if (riskLevel === 'high') return colors.error;
-    if (riskLevel === 'medium') return colors.warning;
-    return colors.success;
-  };
-
-  return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <MapView
-        provider={PROVIDER_GOOGLE}
-        style={styles.map}
-        initialRegion={{
-          latitude: farmLocation.latitude,
-          longitude: farmLocation.longitude,
-          latitudeDelta: 0.12,
-          longitudeDelta: 0.1,
-        }}
-        mapType={mapType}
-        showsUserLocation
-        showsMyLocationButton
-        showsCompass
-        showsScale
-        zoomEnabled
-        rotateEnabled
-        scrollEnabled
-      >
-        {clients?.map((client, index) => {
-          const hasGps = client.latitude != null && client.longitude != null;
-          const coordinate = hasGps
-            ? { latitude: client.latitude as number, longitude: client.longitude as number }
-            : {
-                latitude: farmLocation.latitude + (index + 1) * 0.004,
-                longitude: farmLocation.longitude - (index + 1) * 0.003,
-              };
-          return (
-            <Marker
-              key={client.id}
-              coordinate={coordinate}
-              title={client.name}
-              description={`${client.crop} · ${client.area} ha${hasGps ? ' · GPS' : ''}`}
-              pinColor={colors.primary}
-            />
-          );
-        })}
-
-        {polygonsToRender.map((poly) => (
-          <Polygon
-            key={poly.id}
-            coordinates={poly.coordinates}
-            strokeColor={colors.accent}
-            fillColor={colors.accent + '22'}
-            strokeWidth={2}
-          />
-        ))}
-
-        {showRoutes &&
-          flightPaths.map((path) => (
-            <Polyline key={path.id} coordinates={path.coordinates} strokeColor={path.color} strokeWidth={4} />
-          ))}
-      </MapView>
-
-      <ScrollView style={styles.overlay} contentContainerStyle={styles.overlayContent} showsVerticalScrollIndicator={false}>
-        <GlassCard>
-          <SectionHeader title="Mapas" subtitle="GPS, polígonos y rutas" />
-          <Text style={{ color: colors.textSecondary, fontWeight: '700', marginBottom: 12 }}>
-            Datos desde clientes (polígonos) y vuelos (rutas). Filtros abajo.
-          </Text>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('GeoHistory')}
-            style={[styles.historyBtn, { backgroundColor: colors.primaryMuted, borderColor: colors.primary, borderRadius: radii.md }]}
-          >
-            <Text style={{ color: colors.primary, fontWeight: '900' }}>Historial geográfico →</Text>
-          </TouchableOpacity>
-        </GlassCard>
-
-        <GlassCard>
-          <SectionHeader title="Estadísticas" subtitle="Operación geográfica" />
-          <View style={styles.statsGrid}>
-            <Stat label="Vuelos" value={`${flights?.length || 0}`} />
-            <Stat label="Clientes" value={`${clients?.length || 0}`} />
-            <Stat label="Área" value={`${totalArea} ha`} />
-            <Stat label="Tiempo" value={`${totalMinutes} min`} />
-          </View>
-        </GlassCard>
-
-        <GlassCard>
-          <SectionHeader title="Condiciones" subtitle="Clima actual" />
-          {weatherLoading ? (
-            <ActivityIndicator size="small" color={colors.primary} />
-          ) : weather ? (
-            <View style={{ gap: 8 }}>
-              <Text style={{ color: colors.text, fontWeight: '900' }}>
-                {Math.round(weather.temperature)}°C · {weather.condition}
-              </Text>
-              <Text style={{ color: colors.textSecondary }}>Viento: {Math.round(weather.windSpeed)} km/h</Text>
-              <Text style={{ color: colors.textSecondary }}>Humedad: {Math.round(weather.humidity)}%</Text>
-            </View>
-          ) : (
-            <Text style={{ color: colors.textSecondary }}>Datos de clima no disponibles.</Text>
-          )}
-        </GlassCard>
-
-        {recommendation && (
-          <GlassCard>
-            <SectionHeader title="Recomendación" subtitle="Decisión de vuelo" />
-            <View
-              style={[
-                styles.recommendation,
-                { backgroundColor: getRiskColor(recommendation.riskLevel) + '18', borderColor: getRiskColor(recommendation.riskLevel) },
-              ]}
-            >
-              <Text style={{ color: getRiskColor(recommendation.riskLevel), fontWeight: '900' }}>
-                {recommendation.recommended ? 'Vuelo recomendado' : 'No recomendado'}
-              </Text>
-              <Text style={{ color: colors.textSecondary, marginTop: 6 }}>{recommendation.reason}</Text>
-            </View>
-          </GlassCard>
-        )}
-
-        <View style={styles.controlPanel}>
-          <TouchableOpacity
-            onPress={() => setMapType((m) => (m === 'satellite' ? 'mutedStandard' : 'satellite'))}
-            style={[styles.controlButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          >
-            <Text style={{ color: colors.primary, fontWeight: '900' }}>{mapType === 'satellite' ? 'Mapa' : 'Satélite'}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setShowRoutes((v) => !v)}
-            style={[styles.controlButton, { backgroundColor: colors.surface, borderColor: colors.border, opacity: showRoutes ? 1 : 0.55 }]}
-          >
-            <Text style={{ color: colors.primary, fontWeight: '900' }}>Rutas</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setShowZones((v) => !v)}
-            style={[styles.controlButton, { backgroundColor: colors.surface, borderColor: colors.border, opacity: showZones ? 1 : 0.55 }]}
-          >
-            <Text style={{ color: colors.primary, fontWeight: '900' }}>Zonas</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </View>
+  const canRenderNativeMap = Platform.OS !== 'android' || !!androidMapsKey;
+  const clientMarkers = useMemo(
+    () => (clients || []).filter((client) => Number.isFinite(client.latitude) && Number.isFinite(client.longitude)),
+    [clients]
+  );
+  const fieldPolygons = useMemo(
+    () => (clients || []).map((client) => ({ id: client.id, coordinates: parseCoordinates(client.field_polygon) })).filter((item) => item.coordinates.length >= 3),
+    [clients]
+  );
+  const flightRoutes = useMemo(
+    () => (flights || []).map((flight) => ({ id: flight.id, coordinates: parseCoordinates(flight.route_coordinates) })).filter((item) => item.coordinates.length >= 2),
+    [flights]
   );
 
-  function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
+      <SectionHeader title="Mapas" subtitle="GPS, rutas y zonas atendidas" />
+
+      <View style={[styles.mapPreview, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        {canRenderNativeMap ? (
+          <MapView
+            provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+            style={styles.nativeMap}
+            initialRegion={{
+              ...farmLocation,
+              latitudeDelta: 0.08,
+              longitudeDelta: 0.08,
+            }}
+            showsUserLocation
+            showsMyLocationButton
+          >
+            {clientMarkers.map((client) => (
+              <Marker
+                key={client.id}
+                coordinate={{ latitude: client.latitude!, longitude: client.longitude! }}
+                title={client.name}
+                description={client.location}
+              />
+            ))}
+            {fieldPolygons.map((field) => (
+              <Polygon
+                key={field.id}
+                coordinates={field.coordinates}
+                strokeColor={colors.primary}
+                fillColor={colors.primary + '25'}
+                strokeWidth={2}
+              />
+            ))}
+            {flightRoutes.map((route) => (
+              <Polyline key={route.id} coordinates={route.coordinates} strokeColor={colors.accent} strokeWidth={4} />
+            ))}
+          </MapView>
+        ) : (
+          <View style={[styles.mapGrid, { borderColor: colors.border }]}>
+            <View style={[styles.zone, { backgroundColor: colors.primary + '20', borderColor: colors.primary }]} />
+            <View style={[styles.route, { backgroundColor: colors.accent }]} />
+            <View style={[styles.pin, { backgroundColor: colors.primary }]} />
+          </View>
+        )}
+        <Text style={[styles.previewTitle, { color: colors.text }]}>
+          {canRenderNativeMap ? 'Mapa operativo' : 'Mapa nativo pendiente de API key'}
+        </Text>
+        <Text style={[styles.previewText, { color: colors.textSecondary }]}>
+          {canRenderNativeMap
+            ? 'Clientes, polígonos y rutas de vuelo se muestran sobre el mapa nativo.'
+            : 'Configura EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY o GOOGLE_MAPS_ANDROID_API_KEY para activar Google Maps en Android.'}
+        </Text>
+      </View>
+
+      <View style={styles.statsGrid}>
+        <StatCard icon="flight" label="Vuelos" value={`${flights?.length || 0}`} />
+        <StatCard icon="groups" label="Clientes" value={`${clients?.length || 0}`} />
+        <StatCard icon="crop-free" label="Área cubierta" value={`${totalArea} ha`} />
+        <StatCard icon="timer" label="Tiempo total" value={`${totalMinutes} min`} />
+      </View>
+
+      <GlassCard style={styles.card}>
+        <Text style={[styles.cardTitle, { color: colors.text }]}>Historial geográfico</Text>
+        <Text style={[styles.bodyText, { color: colors.textSecondary, marginBottom: 12 }]}>
+          Lista de vuelos con fechas y cobertura. En móvil verás mapas y rutas completas.
+        </Text>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('GeoHistory')}
+          style={[styles.historyBtn, { borderColor: colors.primary, backgroundColor: colors.primaryMuted, borderRadius: radii.md }]}
+        >
+          <Text style={{ color: colors.primary, fontWeight: '900', textAlign: 'center' }}>Abrir historial →</Text>
+        </TouchableOpacity>
+      </GlassCard>
+
+      <GlassCard style={styles.card}>
+        <Text style={[styles.cardTitle, { color: colors.text }]}>Condiciones actuales</Text>
+        {weatherLoading ? (
+          <Text style={[styles.bodyText, { color: colors.textSecondary }]}>Cargando condiciones...</Text>
+        ) : weather ? (
+          <View style={styles.infoRows}>
+            <Info label="Temperatura" value={`${Math.round(weather.temperature)}°C`} />
+            <Info label="Viento" value={`${Math.round(weather.windSpeed)} km/h`} />
+            <Info label="Humedad" value={`${Math.round(weather.humidity)}%`} />
+            <Info label="Coordenadas" value={`${farmLocation.latitude}, ${farmLocation.longitude}`} />
+          </View>
+        ) : (
+          <Text style={[styles.bodyText, { color: colors.textSecondary }]}>Datos de clima no disponibles.</Text>
+        )}
+      </GlassCard>
+
+      <GlassCard style={styles.card}>
+        <Text style={[styles.cardTitle, { color: colors.text }]}>Recomendación de vuelo</Text>
+        <Text style={[styles.bodyText, { color: colors.textSecondary }]}>
+          {recommendation?.reason || 'No hay recomendaciones disponibles.'}
+        </Text>
+      </GlassCard>
+    </ScrollView>
+  );
+
+  function StatCard({ icon, label, value }: { icon: keyof typeof MaterialIcons.glyphMap; label: string; value: string }) {
     return (
-      <View style={[styles.statBox, { backgroundColor: colors.background }]}>
-        <Text style={{ color: colors.primary, fontSize: 20, fontWeight: '900' }}>{value}</Text>
-        <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '800' }}>{label}</Text>
+      <GlassCard style={styles.statCard}>
+        <MaterialIcons name={icon} size={22} color={colors.primary} />
+        <Text style={[styles.statValue, { color: colors.text }]}>{value}</Text>
+        <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{label}</Text>
+      </GlassCard>
+    );
+  }
+
+  function Info({ label, value }: { label: string; value: string }) {
+    return (
+      <View style={styles.infoRow}>
+        <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{label}</Text>
+        <Text style={[styles.infoValue, { color: colors.text }]}>{value}</Text>
       </View>
     );
   }
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  map: { flex: 1 },
-  overlay: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 92,
-    maxHeight: height * 0.62,
-  },
-  overlayContent: {
-    gap: 12,
-    paddingBottom: 20,
-  },
-  historyBtn: {
-    borderWidth: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  statBox: {
-    width: '47%',
-    borderRadius: 8,
-    padding: 12,
-  },
-  recommendation: {
-    borderLeftWidth: 4,
-    borderRadius: 8,
-    padding: 12,
-  },
-  controlPanel: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  controlButton: {
-    flex: 1,
-    minHeight: 42,
-    borderWidth: 1,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  screen: { flex: 1 },
+  content: { flexGrow: 1, padding: 20, paddingBottom: 168, gap: 14 },
+  mapPreview: { minHeight: 260, borderWidth: 1, borderRadius: 8, padding: 12, overflow: 'hidden' },
+  nativeMap: { minHeight: 250, borderRadius: 8, marginBottom: 16 },
+  mapGrid: { flex: 1, minHeight: 150, borderWidth: 1, borderRadius: 8, position: 'relative', marginBottom: 16 },
+  zone: { position: 'absolute', width: 180, height: 90, borderWidth: 2, borderRadius: 8, left: 34, top: 28, transform: [{ rotate: '-8deg' }] },
+  route: { position: 'absolute', width: 190, height: 4, left: 55, top: 82, transform: [{ rotate: '16deg' }], borderRadius: 8 },
+  pin: { position: 'absolute', width: 18, height: 18, borderRadius: 9, left: 128, top: 70 },
+  previewTitle: { fontSize: 20, fontWeight: '900' },
+  previewText: { marginTop: 6, fontSize: 13, lineHeight: 20, fontWeight: '700' },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  statCard: { width: '47%', minHeight: 120, gap: 8 },
+  statValue: { fontSize: 24, fontWeight: '900' },
+  statLabel: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase' },
+  card: { gap: 12 },
+  cardTitle: { fontSize: 18, fontWeight: '900' },
+  bodyText: { fontSize: 14, lineHeight: 21, fontWeight: '700' },
+  infoRows: { gap: 10 },
+  infoRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 14 },
+  infoLabel: { fontSize: 13, fontWeight: '800' },
+  infoValue: { fontSize: 13, fontWeight: '900' },
+  historyBtn: { borderWidth: 1, paddingVertical: 12, paddingHorizontal: 14 },
 });

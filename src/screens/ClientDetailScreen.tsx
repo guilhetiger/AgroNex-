@@ -1,5 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ActivityIndicator, Alert, DimensionValue, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GlassCard } from '@components/ui/GlassCard';
@@ -8,19 +9,21 @@ import { useClients, useDeleteClient, useExpenses, useFlights } from '@hooks/use
 import { parseFieldPolygon } from '@utils/geo';
 import { useLocalization } from '@context/LocalizationContext';
 import { useAI } from '@hooks/useAI';
+import type { AppStackParamList } from '@navigation/types';
 
-type ClientDetailRoute = RouteProp<Record<string, { clientId: string }>, string>;
+type ClientDetailRoute = RouteProp<AppStackParamList, 'ClientDetail'>;
 
 export function ClientDetailScreen() {
   const route = useRoute<ClientDetailRoute>();
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList, 'ClientDetail'>>();
   const { colors } = useTheme();
   const { country, formatCurrency, formatDate } = useLocalization();
   const { data: clients, isLoading } = useClients();
   const { data: flights } = useFlights();
   const { data: expenses } = useExpenses();
   const deleteClientMutation = useDeleteClient();
-  const client = clients?.find((item) => item.id === route.params.clientId);
+  const clientId = route.params?.clientId;
+  const client = clients?.find((item) => item.id === clientId);
 
   const clientFlights = flights?.filter((flight) => flight.client_id === client?.id) || [];
   const clientExpenses = expenses || [];
@@ -32,7 +35,7 @@ export function ClientDetailScreen() {
       return;
     }
 
-    navigation.navigate('MainTab' as never);
+    navigation.navigate('MainTab', { screen: 'Clients' });
   };
 
   const confirmDelete = () => {
@@ -188,6 +191,9 @@ export function ClientDetailScreen() {
                 {formatCurrency(aiAnalysis.price?.suggestedPricePerHectare || 0)}
               </Text>
               <Text style={[styles.priceExplanation, { color: colors.textSecondary }]}>{aiAnalysis.price?.explanation}</Text>
+              <Text style={[styles.priceExplanation, { color: colors.textSecondary }]}>
+                Costo estimado/ha: {formatCurrency(aiAnalysis.price?.estimatedCostPerHectare || 0)}
+              </Text>
             </View>
             <View style={[styles.marginBadge, { backgroundColor: colors.accent + '18' }]}>
               <Text style={[styles.marginValue, { color: colors.accent }]}>+{aiAnalysis.price?.margin || 0}%</Text>
