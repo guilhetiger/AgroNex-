@@ -1,12 +1,98 @@
+# =============================================================================
+# AgroNex — Git ignore rules
+# Source code (src/, apps/, supabase/) and package manifests are tracked.
+# =============================================================================
+
+# --- Environment variables & secrets -----------------------------------------
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local.bak
+.env.*.local
+
+# Keep example templates (placeholders only, no real secrets)
+!.env.example
+!**/.env.example
+
+# Other credential files
+*.pem
+*.p12
+*.key
+credentials.json
+service-account*.json
+google-services.json
+GoogleService-Info.plist
+
+# --- Dependencies ------------------------------------------------------------
 node_modules/
+
+# --- Expo --------------------------------------------------------------------
 .expo/
 .expo-shared/
+
+# --- IDE & editor local config -----------------------------------------------
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# --- Build outputs (web) -----------------------------------------------------
+dist/
+web-build/
+web-dist/
+out/
+.next/
+
+# --- Build outputs (Expo export / Android bundles) ---------------------------
+android-dist/
+android-dist-test/
+android-backup/
+
+# Expo prebuild native projects (regenerate with `npx expo prebuild`)
+/android/
+/ios/
+
+# --- Android / Gradle artifacts ----------------------------------------------
+*.apk
+*.aab
+*.keystore
+android/app/build/
+android/build/
+android/.gradle/
+android/.kotlin/
+local.properties
+*.hprof
+
+# --- Logs & generated debug reports ------------------------------------------
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.DS_Store
-*.log
+pnpm-debug.log*
+expo-doctor-output.txt
+export-log.txt
+android_build*.txt
+android_gradle_version.txt
+
+# --- Temporary files ---------------------------------------------------------
 *.tmp
-dist/
-web-build/
-.env*.local
+tmp_*
+*.temp
+
+# --- OS metadata -------------------------------------------------------------
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# --- Local dev / test artifacts (keep on disk, not in repo) ------------------
+agronex-qr.png
+abrir-en-celular.html
+generar-apk.ps1
+probar-expo-go.ps1

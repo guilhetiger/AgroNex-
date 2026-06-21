@@ -1,0 +1,35 @@
+AGRONEX — SI SALE "failed to download remote update"
+====================================================
+
+CAUSA: El APK viejo (app-debug.apk) NO trae la app dentro; intenta descargarla de la PC y falla.
+
+SOLUCION A — APK NUEVO (recomendado, sin Expo Go)
+-------------------------------------------------
+1. Desinstala AgroNex del celular.
+2. En PowerShell:
+   cd d:\AgroNex
+   .\generar-apk.ps1
+3. Copia al celular el archivo: AgroNex-release.apk
+4. Instálalo (permite "orígenes desconocidos" si Android lo pide).
+
+Si generar-apk.ps1 falla, copia la carpeta AgroNex a C:\AgroNex y ejecuta el script desde ahí.
+
+
+SOLUCION B — Expo Go (PC encendida siempre)
+-------------------------------------------
+1. Desinstala cualquier APK de AgroNex.
+2. Instala "Expo Go" desde Play Store (actualizado).
+3. En Expo Go: perfil -> Clear cache.
+4. En PowerShell (dejar abierto):
+   cd d:\AgroNex
+   .\probar-expo-go.ps1
+5. Escanea el QR que sale en la terminal.
+
+
+SOLUCION C — Navegador del celular (rápido, sin instalar)
+---------------------------------------------------------
+1. PC y celular en la misma Wi-Fi.
+2. PowerShell:
+   cd d:\AgroNex
+   npx expo start --web --lan
+3. En el celular abre Chrome y visita la URL que muestra la terminal (ej. http://192.168.x.x:8081).
