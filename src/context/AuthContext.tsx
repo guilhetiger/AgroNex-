@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useEffect, useMemo } from 'react';
+import React, { createContext, useCallback, useEffect, useMemo, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { hasSupabaseConfig, supabase } from '@services/supabaseClient';
 import { authStorage } from '@services/storage';
@@ -7,7 +7,7 @@ import { auditService } from '@services/auditService';
 import { queryClient } from '@services/queryClient';
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
-import type { AuthChangeEvent } from '@supabase/supabase-js';
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { User, UserRole } from '../types/index';
 
 export type SignUpResult = {
@@ -150,20 +150,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setAuthState = useAuthStore((state) => state.setAuthState);
   const setAccess = useAuthStore((state) => state.setAccess);
   const resetAuthState = useAuthStore((state) => state.resetAuthState);
+  const authReadyRef = useRef(false);
 
-  const clearSession = useCallback(async () => {
-    if (hasSupabaseConfig) {
-      try {
-        await supabase.auth.signOut({ scope: 'local' });
-      } catch (error) {
-        console.error('Error clearing Supabase session storage:', error);
-      }
-    }
+  const resetLocalAuthState = useCallback(async () => {
     await authStorage.clear();
     await queryClient.clear();
     useDataStore.getState().resetDataStore();
     resetAuthState();
   }, [resetAuthState]);
+
+  const hydrateFromSession = useCallback(
+    async (session: Session) => {
+      const payload = createUserPayload(session.user);
+      setAuthState({ user: payload, session });
+      await authStorage.saveUser(payload);
+    },
+    [setAuthState]
+  );
 
   const auditEvent = useCallback(async (
     action: 'login' | 'logout' | 'admin_action' | 'invalid_session',
@@ -189,16 +192,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async function initializeUser() {
       try {
         if (!hasSupabaseConfig) {
-          await clearSession();
-          setLoading(false);
+          await resetLocalAuthState();
           return;
         }
 
         const { data, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error('Error inicializando sesión:', error);
+          return;
+        }
+
         if (data.session?.user) {
-          const payload = createUserPayload(data.session.user);
-          setAuthState({ user: payload, session: data.session });
-          await authStorage.saveUser(payload);
+          await hydrateFromSession(data.session);
           return;
         }
 
@@ -207,19 +212,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        if (!error) {
-          await clearSession();
-          return;
-        }
-
-        console.error('Error inicializando sesión:', error);
+        // No Supabase session and no in-memory user — clear cached profile only.
+        // Never call signOut here: that revokes/logs out a session that may have
+        // just been created while getSession() was in flight.
+        await authStorage.clear();
       } catch (error) {
         console.error('Error inicializando sesión:', error);
         const { user: restoredUser, session: restoredSession } = useAuthStore.getState();
         if (!restoredSession?.user && !restoredUser) {
-          await clearSession();
+          await authStorage.clear();
         }
       } finally {
+        authReadyRef.current = true;
         setLoading(false);
       }
     }
@@ -230,11 +234,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const payload = createUserPayload(session.user);
           setAuthState({ user: payload, session });
           void authStorage.saveUser(payload);
+          if (!authReadyRef.current) {
+            authReadyRef.current = true;
+            setLoading(false);
+          }
           return;
         }
 
-        if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
-          void clearSession();
+        if (event === 'SIGNED_OUT' || (event as string) === 'USER_DELETED') {
+          void resetLocalAuthState();
         }
       });
     }
@@ -242,11 +250,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initializeUser();
 
     return () => {
+      authReadyRef.current = false;
       if (authListener?.data?.subscription) {
         authListener.data.subscription.unsubscribe();
       }
     };
-  }, [clearSession, setAuthState, setLoading]);
+  }, [hydrateFromSession, resetLocalAuthState, setAuthState, setLoading]);
 
   useEffect(() => {
     let cancelled = false;
@@ -396,9 +405,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     const currentUser = user;
-    if (hasSupabaseConfig) {
-      await supabase.auth.signOut();
-    }
     if (currentUser) {
       await auditService.record({
         user_id: currentUser.id,
@@ -408,8 +414,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         details: 'Cierre de sesión manual',
       });
     }
-    await clearSession();
-  }, [clearSession, user]);
+    if (hasSupabaseConfig) {
+      await supabase.auth.signOut();
+      return;
+    }
+    await resetLocalAuthState();
+  }, [resetLocalAuthState, user]);
   const refreshAccess = useCallback(async () => {
     if (!user) {
       setAccess(null);
