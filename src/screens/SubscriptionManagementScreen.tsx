@@ -17,6 +17,7 @@ import { useAuth } from '@hooks/useAuth';
 import { useTheme } from '@theme/ThemeProvider';
 import { UserUsageDetailPanel } from '@components/analytics/UserUsageDetailPanel';
 import {
+  activatePlanForUser,
   cancelSubscriptionForUser,
   convertSubscriptionToEnterprise,
   extendSubscriptionDays,
