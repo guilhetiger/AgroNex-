@@ -9,6 +9,9 @@ import { useClients, useDeleteClient, useExpenses, useFlights } from '@hooks/use
 import { parseFieldPolygon } from '@utils/geo';
 import { useLocalization } from '@context/LocalizationContext';
 import { useAI } from '@hooks/useAI';
+import { useAuth } from '@hooks/useAuth';
+import { useWeatherBundle } from '@hooks/useWeather';
+import { WeatherConditionsPanel } from '@components/weather/WeatherConditionsPanel';
 import type { AppStackParamList } from '@navigation/types';
 
 type ClientDetailRoute = RouteProp<AppStackParamList, 'ClientDetail'>;
@@ -22,12 +25,24 @@ export function ClientDetailScreen() {
   const { data: flights } = useFlights();
   const { data: expenses } = useExpenses();
   const deleteClientMutation = useDeleteClient();
+  const { user } = useAuth();
   const clientId = route.params?.clientId;
   const client = clients?.find((item) => item.id === clientId);
 
   const clientFlights = flights?.filter((flight) => flight.client_id === client?.id) || [];
   const clientExpenses = expenses || [];
   const aiAnalysis = useAI(client || null, clientFlights, clientExpenses, country);
+  const hasGps = client?.latitude != null && client?.longitude != null;
+  const { data: weatherBundle, isLoading: weatherLoading, error: weatherError } = useWeatherBundle(
+    client?.latitude ?? 0,
+    client?.longitude ?? 0,
+    {
+      enabled: !!hasGps,
+      userId: user?.id,
+      locationLabel: client?.name,
+      notify: false,
+    }
+  );
 
   const goBack = () => {
     if (navigation.canGoBack()) {
@@ -154,6 +169,16 @@ export function ClientDetailScreen() {
             <Text style={[styles.aiText, { color: colors.textSecondary }]}>Sin coordenadas. Añádelas al editar el cliente.</Text>
           )}
         </GlassCard>
+
+        {hasGps ? (
+          <WeatherConditionsPanel
+            title="Clima en la finca"
+            weather={weatherBundle?.current}
+            spraying={weatherBundle?.spraying}
+            isLoading={weatherLoading}
+            errorMessage={weatherError instanceof Error ? weatherError.message : null}
+          />
+        ) : null}
 
         <GlassCard style={styles.sectionCard}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Polígono del lote</Text>

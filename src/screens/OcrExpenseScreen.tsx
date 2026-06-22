@@ -7,9 +7,12 @@ import { QuickModuleBackBar } from '@components/ui/QuickModuleBackBar';
 import { SectionHeader } from '@components/ui/SectionHeader';
 import { useTheme } from '@theme/ThemeProvider';
 import { aiPlatformClient } from '@services/aiPlatformClient';
+import { trackOCRUsage } from '@services/analyticsService';
+import { useAuth } from '@hooks/useAuth';
 
 export function OcrExpenseScreen() {
   const { colors } = useTheme();
+  const { user } = useAuth();
   const [uri, setUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string>('');
@@ -29,6 +32,7 @@ export function OcrExpenseScreen() {
     if (!picked.canceled && picked.assets[0]?.uri) {
       setUri(picked.assets[0].uri);
       setResult('');
+      if (user?.id) void trackOCRUsage(user.id, 'upload');
     }
   };
 
@@ -40,6 +44,9 @@ export function OcrExpenseScreen() {
       setResult(
         `Gasto creado:\n• Categoría: ${response.expense.category}\n• Monto: $${response.expense.amount}\n• Proveedor: ${response.expense.vendor}\n• Fecha: ${response.expense.date}`
       );
+      if (user?.id) {
+        void trackOCRUsage(user.id, 'processed', { entityId: response.expense.id, jobId: response.jobId });
+      }
       Alert.alert('Listo', 'Comprobante procesado y registrado en gastos.');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'No se pudo procesar el comprobante.';
@@ -57,7 +64,7 @@ export function OcrExpenseScreen() {
 
         <GlassCard style={{ gap: 12 }}>
           <Text style={{ color: colors.textSecondary, lineHeight: 20 }}>
-            Sube una foto de factura o recibo. OpenAI Vision extrae categoría, monto, proveedor y fecha, y crea el registro en
+            Sube una foto de factura o recibo. Gemini (Vertex AI) extrae categoría, monto, proveedor y fecha, y crea el registro en
             `expenses` con tu usuario autenticado.
           </Text>
 

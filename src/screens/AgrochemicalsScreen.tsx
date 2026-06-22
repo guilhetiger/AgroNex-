@@ -8,6 +8,8 @@ import { QuickModuleBackBar } from '@components/ui/QuickModuleBackBar';
 import { SectionHeader } from '@components/ui/SectionHeader';
 import { useTheme } from '@theme/ThemeProvider';
 import { useAgrochemicals, useCreateAgrochemical } from '@hooks/useData';
+import { useAuth } from '@hooks/useAuth';
+import { trackAgrochemicalCreated } from '@services/analyticsService';
 import { useLocalization } from '@context/LocalizationContext';
 import { parseDecimalInput } from '@utils/number';
 import { useTabBarPadding } from '@hooks/useTabBarPadding';
@@ -18,6 +20,7 @@ export function AgrochemicalsScreen() {
   const { formatDate, formatCurrency } = useLocalization();
   const { data: chemicals, isLoading, refetch } = useAgrochemicals();
   const createChemical = useCreateAgrochemical();
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     product: '',
@@ -31,7 +34,7 @@ export function AgrochemicalsScreen() {
   });
 
   const save = async () => {
-    await createChemical.mutateAsync({
+    const created = await createChemical.mutateAsync({
       product: form.product || 'Producto agrícola',
       application_rate: parseDecimalInput(form.application_rate),
       total_used: parseDecimalInput(form.total_used),
@@ -41,6 +44,7 @@ export function AgrochemicalsScreen() {
       stock: parseDecimalInput(form.stock),
       unit_cost_usd: form.unit_cost_usd.trim() ? parseDecimalInput(form.unit_cost_usd) : null,
     });
+    if (user?.id) void trackAgrochemicalCreated(user.id, { productId: created.id, product: created.product });
     setForm({ product: '', application_rate: '', total_used: '', batch: '', expiry_date: '', mixture: '', stock: '', unit_cost_usd: '' });
     setOpen(false);
   };

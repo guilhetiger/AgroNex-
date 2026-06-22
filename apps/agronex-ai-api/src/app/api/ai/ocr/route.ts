@@ -103,8 +103,11 @@ export async function POST(request: Request) {
     if (error instanceof GeminiQuotaError) {
       return Response.json({ error: error.message }, { status: 503 });
     }
-    if (error instanceof Error && error.message === "Missing GEMINI_API_KEY") {
-      return Response.json({ error: "Missing GEMINI_API_KEY. Configura la variable de entorno del servidor." }, { status: 500 });
+    if (error instanceof Error && error.message === "Missing GOOGLE_CLOUD_PROJECT") {
+      return Response.json(
+        { error: "Missing GOOGLE_CLOUD_PROJECT. Configura Vertex AI en el servidor." },
+        { status: 500 }
+      );
     }
     if (error instanceof z.ZodError) {
       return Response.json({ error: "OCR no pudo extraer campos validos.", details: error.flatten() }, { status: 422 });

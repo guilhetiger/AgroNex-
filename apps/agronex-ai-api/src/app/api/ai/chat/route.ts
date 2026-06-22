@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { GeminiQuotaError, generateText } from "@/lib/gemini/client";
+import { GeminiQuotaError, generateText, isVertexAuthError } from "@/lib/gemini/client";
 import { verifyRequest } from "@/lib/auth/verifyRequest";
 import { fetchAiAnalyticsContext, buildContextSummary } from "@/lib/ai/context";
 import { CHAT_SYSTEM_PROMPT } from "@/lib/ai/prompts";
@@ -57,6 +57,8 @@ export async function POST(request: Request) {
       metadata: { model: completion.model, usage: completion.usage }
     });
 
+    console.log(`[AI] Reply (${message.length} chars): ${message.slice(0, 120)}`);
+
     return Response.json({
       conversationId,
       message,
@@ -67,8 +69,20 @@ export async function POST(request: Request) {
     if (error instanceof GeminiQuotaError) {
       return Response.json({ error: error.message }, { status: 503 });
     }
-    if (error instanceof Error && error.message === "Missing GEMINI_API_KEY") {
-      return Response.json({ error: "Missing GEMINI_API_KEY. Configura la variable de entorno del servidor." }, { status: 500 });
+    if (error instanceof Error && error.message === "Missing GOOGLE_CLOUD_PROJECT") {
+      return Response.json(
+        { error: "Missing GOOGLE_CLOUD_PROJECT. Configura Vertex AI en el servidor." },
+        { status: 500 }
+      );
+    }
+    if (isVertexAuthError(error)) {
+      return Response.json(
+        {
+          error:
+            "Credenciales de Vertex AI no disponibles o sin permisos. En local: gcloud auth application-default login, o define GOOGLE_APPLICATION_CREDENTIALS con un JSON de service account."
+        },
+        { status: 503 }
+      );
     }
     if (error instanceof z.ZodError) {
       return Response.json({ error: "Body invalido.", details: error.flatten() }, { status: 400 });

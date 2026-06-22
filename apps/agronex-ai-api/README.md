@@ -9,13 +9,18 @@ Next.js 14 API service that powers AgroNex AI features:
 
 ## Requirements
 
-- Node.js 18+
+- Node.js 18+ (20+ recommended for `@google/genai`)
 - Supabase project with `supabase/schema.sql` and `supabase/ai_schema.sql` applied
-- OpenAI API key
+- Google Cloud project with Vertex AI API enabled and a service account (or ADC)
 
 ## Environment
 
 Copy `.env.example` to `.env.local` and set values.
+
+Required for Vertex AI:
+- `GOOGLE_CLOUD_PROJECT`
+- `GOOGLE_CLOUD_LOCATION` (e.g. `us-central1`)
+- `GOOGLE_APPLICATION_CREDENTIALS` (path to service account JSON locally) or Application Default Credentials
 
 ## Run
 
@@ -31,28 +36,9 @@ GET /api/health
 ```
 
 All AI routes require a Supabase JWT in the `Authorization: Bearer <token>` header.
-# AgroNex AI API
 
-Backend Next.js para chat, reportes, anomalías, predicciones y OCR.
+## Security
 
-## Variables (.env.local)
-
-```env
-SUPABASE_URL=
-SUPABASE_ANON_KEY=
-OPENAI_API_KEY=
-SUPABASE_SERVICE_ROLE_KEY=   # opcional
-```
-
-## Desarrollo
-
-```bash
-npm install
-npm run dev
-```
-
-## Seguridad
-
-- OpenAI solo en servidor.
-- Supabase con JWT del usuario (RLS).
-- No usar service_role para lecturas de negocio.
+- Vertex AI credentials only on the server (never in Expo).
+- Supabase with user JWT (RLS).
+- Do not use service_role for business reads.

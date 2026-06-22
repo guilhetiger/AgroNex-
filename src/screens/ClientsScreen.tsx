@@ -9,6 +9,8 @@ import { GlassCard } from '@components/ui/GlassCard';
 import { SectionHeader } from '@components/ui/SectionHeader';
 import { useTheme } from '@theme/ThemeProvider';
 import { useClients, useCreateClient, useDeleteClient, useExpenses, useFlights } from '@hooks/useData';
+import { useAuth } from '@hooks/useAuth';
+import { trackClientUsage } from '@services/analyticsService';
 import type { AppStackParamList } from '@navigation/types';
 import { getClientScore } from '@services/aiService';
 import { parseDecimalInput } from '@utils/number';
@@ -23,6 +25,7 @@ export function ClientsScreen() {
   const { data: expenses } = useExpenses();
   const createClientMutation = useCreateClient();
   const deleteClientMutation = useDeleteClient();
+  const { user } = useAuth();
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState({
     name: '',
@@ -46,7 +49,7 @@ export function ClientsScreen() {
   }, [flights]);
 
   const handleCreateClient = async () => {
-    await createClientMutation.mutateAsync({
+    const created = await createClientMutation.mutateAsync({
       name: form.name.trim() || 'Nueva finca',
       manager: form.manager.trim(),
       phone: form.phone.trim(),
@@ -60,6 +63,7 @@ export function ClientsScreen() {
       field_polygon: form.field_polygon.trim() || null,
       internal_notes: form.internal_notes.trim() || null,
     });
+    if (user?.id) void trackClientUsage(user.id, 'created', { clientId: created.id });
     setForm({ name: '', manager: '', phone: '', whatsapp: '', crop: '', area: '', location: '', latitude: '', longitude: '', field_polygon: '', internal_notes: '' });
     setCreateOpen(false);
   };

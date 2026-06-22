@@ -1,8 +1,8 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { ApiError, GoogleGenAI } from "@google/genai";
 
-export const GEMINI_MODEL = "gemini-2.0-flash";
+export const GEMINI_MODEL = "gemini-2.5-flash";
 
-let client: GoogleGenerativeAI | null = null;
+let client: GoogleGenAI | null = null;
 
 export class GeminiQuotaError extends Error {
   constructor(message = "Cuota de Gemini agotada. Intenta de nuevo mas tarde.") {
@@ -11,27 +11,54 @@ export class GeminiQuotaError extends Error {
   }
 }
 
-export function getGeminiClient() {
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error("Missing GEMINI_API_KEY");
+function getVertexConfig() {
+  const project = process.env.GOOGLE_CLOUD_PROJECT;
+  const location =
+    process.env.GOOGLE_CLOUD_LOCATION ?? process.env.GOOGLE_LOCATION ?? "us-central1";
+
+  if (!project) {
+    throw new Error("Missing GOOGLE_CLOUD_PROJECT");
   }
 
+  return { project, location };
+}
+
+export function isVertexAuthError(error: unknown): boolean {
+  if (error instanceof ApiError) {
+    if (error.status === 401 || error.status === 403) return true;
+    const message = `${error.message ?? ""}`.toUpperCase();
+    return (
+      message.includes("UNAUTHENTICATED") ||
+      message.includes("PERMISSION_DENIED") ||
+      message.includes("CREDENTIALS")
+    );
+  }
+
+  if (error instanceof Error) {
+    const message = error.message.toUpperCase();
+    return (
+      message.includes("COULD NOT LOAD THE DEFAULT CREDENTIALS") ||
+      message.includes("UNAUTHENTICATED") ||
+      message.includes("PERMISSION_DENIED") ||
+      message.includes("INVALID GRANT")
+    );
+  }
+
+  return false;
+}
+
+export function getGeminiClient() {
+  const { project, location } = getVertexConfig();
+
   if (!client) {
-    client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    client = new GoogleGenAI({
+      vertexai: true,
+      project,
+      location
+    });
   }
 
   return client;
-}
-
-function getModel(options: { systemInstruction?: string; temperature?: number }) {
-  const genAI = getGeminiClient();
-  return genAI.getGenerativeModel({
-    model: GEMINI_MODEL,
-    systemInstruction: options.systemInstruction,
-    generationConfig: {
-      temperature: options.temperature ?? 0.2
-    }
-  });
 }
 
 function normalizeSystemInstruction(systemInstruction?: string | string[]) {
@@ -40,6 +67,12 @@ function normalizeSystemInstruction(systemInstruction?: string | string[]) {
 }
 
 export function isGeminiQuotaError(error: unknown): boolean {
+  if (error instanceof ApiError) {
+    if (error.status === 429) return true;
+    const message = `${error.message ?? ""}`.toUpperCase();
+    return message.includes("RESOURCE_EXHAUSTED") || message.includes("429");
+  }
+
   if (!error || typeof error !== "object") {
     const message = String(error ?? "").toUpperCase();
     return message.includes("RESOURCE_EXHAUSTED") || message.includes("429");
@@ -69,29 +102,37 @@ type GenerateTextResult = {
   } | null;
 };
 
+function mapUsageMetadata(
+  usage: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number } | undefined
+) {
+  if (!usage) return null;
+  return {
+    promptTokenCount: usage.promptTokenCount,
+    candidatesTokenCount: usage.candidatesTokenCount,
+    totalTokenCount: usage.totalTokenCount
+  };
+}
+
 export async function generateText(options: {
   systemInstruction?: string | string[];
   temperature?: number;
   userContent: string;
 }): Promise<GenerateTextResult> {
   try {
-    const model = getModel({
-      systemInstruction: normalizeSystemInstruction(options.systemInstruction),
-      temperature: options.temperature
+    const ai = getGeminiClient();
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: options.userContent,
+      config: {
+        systemInstruction: normalizeSystemInstruction(options.systemInstruction),
+        temperature: options.temperature ?? 0.2
+      }
     });
-    const result = await model.generateContent(options.userContent);
-    const usage = result.response.usageMetadata;
 
     return {
-      text: result.response.text().trim(),
+      text: (response.text ?? "").trim(),
       model: GEMINI_MODEL,
-      usage: usage
-        ? {
-            promptTokenCount: usage.promptTokenCount,
-            candidatesTokenCount: usage.candidatesTokenCount,
-            totalTokenCount: usage.totalTokenCount
-          }
-        : null
+      usage: mapUsageMetadata(response.usageMetadata)
     };
   } catch (error) {
     assertGeminiResponse(error);
@@ -106,26 +147,28 @@ export async function generateTextWithImage(options: {
   mimeType: string;
 }): Promise<GenerateTextResult> {
   try {
-    const model = getModel({
-      systemInstruction: options.systemInstruction,
-      temperature: options.temperature ?? 0
+    const ai = getGeminiClient();
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: [
+        options.text,
+        {
+          inlineData: {
+            mimeType: options.mimeType,
+            data: options.imageBase64
+          }
+        }
+      ],
+      config: {
+        systemInstruction: options.systemInstruction,
+        temperature: options.temperature ?? 0
+      }
     });
-    const result = await model.generateContent([
-      { text: options.text },
-      { inlineData: { mimeType: options.mimeType, data: options.imageBase64 } }
-    ]);
-    const usage = result.response.usageMetadata;
 
     return {
-      text: result.response.text().trim(),
+      text: (response.text ?? "").trim(),
       model: GEMINI_MODEL,
-      usage: usage
-        ? {
-            promptTokenCount: usage.promptTokenCount,
-            candidatesTokenCount: usage.candidatesTokenCount,
-            totalTokenCount: usage.totalTokenCount
-          }
-        : null
+      usage: mapUsageMetadata(response.usageMetadata)
     };
   } catch (error) {
     assertGeminiResponse(error);

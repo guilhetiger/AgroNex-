@@ -4,6 +4,8 @@ import { GlassCard } from '@components/ui/GlassCard';
 import { QuickModuleBackBar } from '@components/ui/QuickModuleBackBar';
 import { SectionHeader } from '@components/ui/SectionHeader';
 import { useAiReports } from '@hooks/useAiReports';
+import { useAuth } from '@hooks/useAuth';
+import { trackAIUsage, trackReportUsage } from '@services/analyticsService';
 import { useTheme } from '@theme/ThemeProvider';
 import type { AiReportType } from '@services/aiPlatformTypes';
 
@@ -17,11 +19,14 @@ const REPORT_TYPES: Array<{ type: AiReportType; label: string; emoji: string }> 
 export function IntelligentReportsScreen() {
   const { colors } = useTheme();
   const reports = useAiReports();
+  const { user } = useAuth();
 
   const handleGenerate = async (reportType: AiReportType) => {
     try {
       const report = await reports.generateReport.mutateAsync(reportType);
+      if (user?.id) void trackAIUsage(user.id, 'report', { reportType, reportId: report.id });
       await reports.downloadReportPdf.mutateAsync({ reportId: report.id, filename: `agronex-${reportType}.pdf` });
+      if (user?.id) void trackReportUsage(user.id, 'pdf', { source: 'intelligent_reports', reportType, reportId: report.id });
     } catch (error) {
       console.warn('Report error', error);
     }

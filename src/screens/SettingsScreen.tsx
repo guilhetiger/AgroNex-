@@ -1,4 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GlassCard } from '@components/ui/GlassCard';
@@ -9,6 +11,8 @@ import { useLocalization } from '@context/LocalizationContext';
 import { useSync } from '@context/SyncContext';
 import { CountryOption, CurrencyOption, LanguageOption } from '../types/index';
 import { useTabBarPadding } from '@hooks/useTabBarPadding';
+import { WeatherWindSettingsCard } from '@components/weather/WeatherWindSettingsCard';
+import type { AppStackParamList } from '@navigation/types';
 
 const countries: Array<{ value: CountryOption; label: string; helper: string }> = [
   { value: 'BO', label: 'Bolivia', helper: 'BOB · Español' },
@@ -28,6 +32,7 @@ const languages: Array<{ value: LanguageOption; label: string }> = [
 export function SettingsScreen() {
   const { colors, mode, setThemeMode } = useTheme();
   const tabBarPadding = useTabBarPadding();
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const { signOut, hasRole } = useAuth();
   const isAdmin = hasRole(['admin']);
   const { setLanguage, setCurrency, setCountry, language, currency, country, t, formatDate } = useLocalization();
@@ -165,7 +170,26 @@ export function SettingsScreen() {
         {isAdmin && (
           <GlassCard style={styles.card}>
             <Text style={[styles.cardTitle, { color: colors.text }]}>Configuración administrativa</Text>
-            <Text style={[styles.cardHint, { color: colors.textSecondary }]}>Solo disponible para usuarios con rol Administrador.</Text>
+            <Text style={[styles.cardHint, { color: colors.textSecondary }]}>
+              Gestiona suscripciones manuales de usuarios desde Supabase.
+            </Text>
+            <TouchableOpacity
+              activeOpacity={0.84}
+              onPress={() => navigation.navigate('SubscriptionManagement')}
+              style={[styles.secondaryButton, { borderColor: colors.border, marginTop: 12 }]}
+            >
+              <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Subscription Management</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.84}
+              onPress={() => navigation.navigate('AnalyticsDashboard')}
+              style={[styles.secondaryButton, { borderColor: colors.border, marginTop: 10 }]}
+            >
+              <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Analytics Dashboard</Text>
+            </TouchableOpacity>
+            <View style={{ marginTop: 14 }}>
+              <WeatherWindSettingsCard />
+            </View>
           </GlassCard>
         )}
 

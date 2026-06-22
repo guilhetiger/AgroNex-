@@ -97,3 +97,9 @@ abrir-en-celular.html
 generar-apk.ps1
 probar-expo-go.ps1
 probar-usb.ps1
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Git helper files
+pr-body.md

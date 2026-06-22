@@ -1,11 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { aiPlatformClient } from "@services/aiPlatformClient";
+import { trackAIUsage } from "@services/analyticsService";
+import { useAuth } from "@hooks/useAuth";
 import { isAiApiConfigured } from "@utils/aiApiUrl";
 
 export const aiDashboardKey = ["ai-dashboard"] as const;
 
 export function useAiDashboard() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const dashboardQuery = useQuery({
     queryKey: aiDashboardKey,
@@ -17,12 +20,18 @@ export function useAiDashboard() {
 
   const refreshAnomalies = useMutation({
     mutationFn: () => aiPlatformClient.detectAnomalies(),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: aiDashboardKey })
+    onSuccess: () => {
+      if (user?.id) void trackAIUsage(user.id, 'anomaly');
+      queryClient.invalidateQueries({ queryKey: aiDashboardKey });
+    },
   });
 
   const refreshPredictions = useMutation({
     mutationFn: () => aiPlatformClient.generatePredictions(),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: aiDashboardKey })
+    onSuccess: () => {
+      if (user?.id) void trackAIUsage(user.id, 'prediction');
+      queryClient.invalidateQueries({ queryKey: aiDashboardKey });
+    },
   });
 
   return {

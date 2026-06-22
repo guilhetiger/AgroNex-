@@ -6,7 +6,8 @@ import { hasSupabaseConfig, supabase } from '@services/supabaseClient';
 import { authStorage } from '@services/storage';
 import { handleAuthCallbackFromUrl } from '@services/authCallback';
 import { getOAuthRedirectUri } from '@services/authRedirect';
-import { activateMonthlySubscription, getAccessState, getFallbackAccessState, type AccessState } from '@services/subscriptionService';
+import { getAccessState, getFallbackAccessState, type AccessState } from '@services/subscriptionService';
+import { trackAppSession, trackSubscriptionEvent } from '@services/analyticsService';
 import { auditService } from '@services/auditService';
 import { queryClient } from '@services/queryClient';
 import { useAuthStore } from '../store/authStore';
@@ -156,6 +157,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const resetAuthState = useAuthStore((state) => state.resetAuthState);
   const authReadyRef = useRef(false);
   const processedAuthUrlsRef = useRef(new Set<string>());
+  const trackedSessionUserRef = useRef<string | null>(null);
+  const trackedExpiredUserRef = useRef<string | null>(null);
 
   const processAuthCallbackUrl = useCallback(async (url: string | null) => {
     if (!url || !hasSupabaseConfig || processedAuthUrlsRef.current.has(url)) {
@@ -314,7 +317,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       try {
         const nextAccess = await getAccessState(user);
-        if (!cancelled) setAccess(nextAccess);
+        if (!cancelled) {
+          setAccess(nextAccess);
+          if (trackedSessionUserRef.current !== user.id) {
+            trackedSessionUserRef.current = user.id;
+            void trackAppSession(user.id);
+          }
+          if (!nextAccess.hasAccess && trackedExpiredUserRef.current !== user.id) {
+            trackedExpiredUserRef.current = user.id;
+            void trackSubscriptionEvent(user.id, 'expired', { status: nextAccess.status, plan: nextAccess.plan });
+          }
+        }
       } catch (error) {
         console.error('Error cargando acceso:', error);
         if (!cancelled) setAccess(getFallbackAccessState(user));
@@ -480,9 +493,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [setAccess, user]);
 
   const activateSubscription = useCallback(async () => {
-    if (!user) return;
-    setAccess(await activateMonthlySubscription(user));
-  }, [setAccess, user]);
+    await refreshAccess();
+  }, [refreshAccess]);
 
   const value = useMemo(
     () => ({ user, loading, signIn, signInWithGoogle, signUp, resetPassword, signOut, access, refreshAccess, activateSubscription, hasRole, auditEvent }),

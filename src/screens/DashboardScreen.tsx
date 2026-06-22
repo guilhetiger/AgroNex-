@@ -6,6 +6,9 @@ import { ResponsiveLineChart } from '@components/ui/ResponsiveLineChart';
 import { SectionHeader } from '@components/ui/SectionHeader';
 import { TabScreenScroll } from '@components/ui/TabScreenScroll';
 import { AiDashboardWidgets } from '@components/ai/AiDashboardWidgets';
+import { SubscriptionSummaryCard } from '@components/subscription/SubscriptionSummaryCard';
+import { WeatherCard } from '@components/weather/WeatherCard';
+import { WeatherAlertsPanel } from '@components/weather/WeatherAlertsPanel';
 import { useTheme } from '@theme/ThemeProvider';
 import { useClients, useFlights, useFarms, useExpenses } from '@hooks/useData';
 import { useLocalization } from '@context/LocalizationContext';
@@ -199,6 +202,18 @@ export function DashboardScreen() {
             </View>
           </View>
         </GlassCard>
+      </Animated.View>
+
+      <Animated.View entering={FadeInDown.duration(420).delay(130)}>
+        <WeatherCard />
+      </Animated.View>
+
+      <Animated.View entering={FadeInDown.duration(420).delay(140)}>
+        <WeatherAlertsPanel />
+      </Animated.View>
+
+      <Animated.View entering={FadeInDown.duration(420).delay(150)}>
+        <SubscriptionSummaryCard />
       </Animated.View>
 
       <Animated.View entering={FadeInDown.duration(420).delay(180)}>

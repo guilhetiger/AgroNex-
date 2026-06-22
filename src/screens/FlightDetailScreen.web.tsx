@@ -7,6 +7,9 @@ import { GlassCard } from '@components/ui/GlassCard';
 import { SectionHeader } from '@components/ui/SectionHeader';
 import { useTheme } from '@theme/ThemeProvider';
 import { useFlights, useClients } from '@hooks/useData';
+import { useAuth } from '@hooks/useAuth';
+import { useWeatherBundle } from '@hooks/useWeather';
+import { WeatherConditionsPanel } from '@components/weather/WeatherConditionsPanel';
 import { useLocalization } from '@context/LocalizationContext';
 import { parseRoutePolyline } from '@utils/geo';
 import type { AppStackParamList } from '@navigation/types';
@@ -20,10 +23,27 @@ export function FlightDetailScreen() {
   const { formatDate } = useLocalization();
   const { data: flights, isLoading } = useFlights();
   const { data: clients } = useClients();
+  const { user } = useAuth();
   const flightId = route.params?.flightId;
   const flight = flights?.find((item) => item.id === flightId);
   const client = clients?.find((c) => c.id === flight?.client_id);
   const pts = parseRoutePolyline(flight?.route_coordinates);
+  const weatherCoords = pts?.[0]
+    ? { lat: pts[0].latitude, lon: pts[0].longitude, label: flight?.farm_name || 'Ruta del vuelo' }
+    : client?.latitude != null && client?.longitude != null
+      ? { lat: client.latitude, lon: client.longitude, label: client.name }
+      : null;
+
+  const { data: weatherBundle, isLoading: weatherLoading, error: weatherError } = useWeatherBundle(
+    weatherCoords?.lat ?? 0,
+    weatherCoords?.lon ?? 0,
+    {
+      enabled: !!weatherCoords,
+      userId: user?.id,
+      locationLabel: weatherCoords?.label,
+      notify: false,
+    }
+  );
 
   const mapsUrl =
     client?.latitude != null && client?.longitude != null
@@ -89,8 +109,18 @@ export function FlightDetailScreen() {
           <Text style={[styles.v, { color: colors.text, marginTop: 6 }]}>Piloto: {flight.pilot || '—'}</Text>
         </GlassCard>
 
+        {weatherCoords ? (
+          <WeatherConditionsPanel
+            title="Clima en el punto de vuelo"
+            weather={weatherBundle?.current}
+            spraying={weatherBundle?.spraying}
+            isLoading={weatherLoading}
+            errorMessage={weatherError instanceof Error ? weatherError.message : null}
+          />
+        ) : null}
+
         <GlassCard>
-          <Text style={[styles.k, { color: colors.textSecondary }]}>Condiciones</Text>
+          <Text style={[styles.k, { color: colors.textSecondary }]}>Condiciones registradas</Text>
           <Text style={[styles.v, { color: colors.text, marginTop: 8 }]}>Clima: {flight.weather || 'N/A'}</Text>
           <Text style={[styles.v, { color: colors.text, marginTop: 6 }]}>Viento: {flight.wind || 'N/A'}</Text>
           <Text style={[styles.v, { color: colors.text, marginTop: 6 }]}>Batería: {flight.battery_usage || 'N/A'}</Text>

@@ -14,6 +14,8 @@ import { ExpensesScreen } from '@screens/ExpensesScreen';
 import { ClientDetailScreen } from '@screens/ClientDetailScreen';
 import { FlightDetailScreen } from '@screens/FlightDetailScreen';
 import { GeoHistoryScreen } from '@screens/GeoHistoryScreen';
+import { SubscriptionManagementScreen } from '@screens/SubscriptionManagementScreen';
+import { AnalyticsDashboardScreen } from '@screens/AnalyticsDashboardScreen';
 import { PremiumTabBar } from './PremiumTabBar';
 import { RoleGuard } from './RoleGuard';
 import type { UserRole } from '../types';
@@ -152,6 +154,20 @@ export function MainTabs() {
         {() => (
           <RoleGuard allowedRoles={ALL_APP_ROLES}>
             <GeoHistoryScreen />
+          </RoleGuard>
+        )}
+      </Stack.Screen>
+      <Stack.Screen name="SubscriptionManagement">
+        {() => (
+          <RoleGuard allowedRoles={['admin']}>
+            <SubscriptionManagementScreen />
+          </RoleGuard>
+        )}
+      </Stack.Screen>
+      <Stack.Screen name="AnalyticsDashboard">
+        {() => (
+          <RoleGuard allowedRoles={['admin']}>
+            <AnalyticsDashboardScreen />
           </RoleGuard>
         )}
       </Stack.Screen>

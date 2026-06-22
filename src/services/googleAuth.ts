@@ -8,6 +8,7 @@ import { supabase } from './supabaseClient';
 WebBrowser.maybeCompleteAuthSession();
 
 const redirectUrl = getOAuthRedirectUri();
+console.log('[GoogleAuth] module-level redirectTo:', redirectUrl);
 
 export type GoogleAuthResponse = {
   session: Session;
@@ -25,6 +26,9 @@ export type GoogleAuthResponse = {
  */
 export async function requestGoogleSignIn(): Promise<GoogleAuthResponse | null> {
   try {
+    const freshRedirectUrl = getOAuthRedirectUri();
+    console.log('[GoogleAuth] redirectTo (module-level):', redirectUrl);
+    console.log('[GoogleAuth] redirectTo (fresh call):', freshRedirectUrl);
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {

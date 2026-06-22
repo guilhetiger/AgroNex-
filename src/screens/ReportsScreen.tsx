@@ -7,6 +7,8 @@ import { SectionHeader } from '@components/ui/SectionHeader';
 import { useTheme } from '@theme/ThemeProvider';
 import { useLocalization } from '@context/LocalizationContext';
 import { useAgrochemicals, useClients, useExpenses, useFlights } from '@hooks/useData';
+import { useAuth } from '@hooks/useAuth';
+import { trackReportUsage } from '@services/analyticsService';
 import { buildReportCsv, buildReportHtml, shareCsvFile, sharePdfFromHtml, sharePlainMessage, type ReportExportPayload } from '@services/reportExport';
 import { getAppliedHectares, getExpensesUsd, getProfitUsd, getRevenueUsd } from '@services/financial';
 
@@ -17,6 +19,7 @@ export function ReportsScreen() {
   const { data: flights } = useFlights();
   const { data: expenses } = useExpenses();
   const { data: chemicals } = useAgrochemicals();
+  const { user } = useAuth();
 
   const totalExpenses = getExpensesUsd(expenses || []);
   const totalHectares = getAppliedHectares(flights || []);
@@ -44,8 +47,10 @@ export function ReportsScreen() {
     try {
       if (type === 'PDF') {
         await sharePdfFromHtml(buildReportHtml(payload));
+        if (user?.id) void trackReportUsage(user.id, 'pdf', { source: 'reports_screen' });
       } else if (type === 'Excel') {
         await shareCsvFile(buildReportCsv(payload));
+        if (user?.id) void trackReportUsage(user.id, 'csv', { source: 'reports_screen' });
       } else {
         const body = `${buildReportCsv(payload)}\n\nResumen: ${formatCurrency(profit)} estimado.`;
         await sharePlainMessage(`AgroNex · ${type}`, body);

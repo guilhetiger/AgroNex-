@@ -1,23 +1,74 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useMemo } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { GlassCard } from '@components/ui/GlassCard';
 import { SectionHeader } from '@components/ui/SectionHeader';
 import { TabScreenScroll } from '@components/ui/TabScreenScroll';
+import { WeatherConditionsPanel } from '@components/weather/WeatherConditionsPanel';
 import { useTheme } from '@theme/ThemeProvider';
-import { useCurrentWeather, useFlightRecommendation } from '@hooks/useWeather';
+import { useAuth } from '@hooks/useAuth';
+import { useUserLocation, useWeatherBundle } from '@hooks/useWeather';
 import { useFlights, useClients } from '@hooks/useData';
+import { parseRoutePolyline } from '@utils/geo';
 import type { AppStackParamList } from '@navigation/types';
+
+function WeatherAtLocation({
+  title,
+  latitude,
+  longitude,
+  locationLabel,
+  userId,
+}: {
+  title: string;
+  latitude: number;
+  longitude: number;
+  locationLabel: string;
+  userId?: string;
+}) {
+  const { data, isLoading, error } = useWeatherBundle(latitude, longitude, {
+    userId,
+    locationLabel,
+    notify: false,
+  });
+
+  return (
+    <WeatherConditionsPanel
+      title={title}
+      weather={data?.current}
+      spraying={data?.spraying}
+      isLoading={isLoading}
+      errorMessage={error instanceof Error ? error.message : null}
+      compact
+    />
+  );
+}
 
 export function MapsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const { colors, radii } = useTheme();
-  const farmLocation = { latitude: -16.4897, longitude: -68.1193 };
-  const { data: weather, isLoading: weatherLoading } = useCurrentWeather(farmLocation.latitude, farmLocation.longitude);
-  const { recommendation } = useFlightRecommendation(farmLocation.latitude, farmLocation.longitude);
+  const { user } = useAuth();
+  const { coords: userCoords, fallbackCoords } = useUserLocation(true);
   const { data: flights } = useFlights();
   const { data: clients } = useClients();
+
+  const primaryClient = useMemo(
+    () => clients?.find((client) => Number.isFinite(client.latitude) && Number.isFinite(client.longitude)),
+    [clients]
+  );
+  const farmLocation = primaryClient
+    ? { latitude: primaryClient.latitude!, longitude: primaryClient.longitude! }
+    : fallbackCoords;
+
+  const latestFlightRoute = useMemo(() => {
+    const sorted = [...(flights || [])].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    for (const flight of sorted) {
+      const pts = parseRoutePolyline(flight.route_coordinates);
+      if (pts?.[0]) return { point: pts[0], label: flight.farm_name || `Vuelo ${flight.id.slice(-4)}` };
+    }
+    return null;
+  }, [flights]);
 
   const totalArea = flights?.reduce((sum, flight) => sum + flight.area_covered, 0) || 0;
   const totalMinutes = flights?.reduce((sum, flight) => sum + flight.duration, 0) || 0;
@@ -58,28 +109,33 @@ export function MapsScreen() {
         </TouchableOpacity>
       </GlassCard>
 
-      <GlassCard style={styles.card}>
-        <Text style={[styles.cardTitle, { color: colors.text }]}>Condiciones actuales</Text>
-        {weatherLoading ? (
-          <Text style={[styles.bodyText, { color: colors.textSecondary }]}>Cargando condiciones...</Text>
-        ) : weather ? (
-          <View style={styles.infoRows}>
-            <Info label="Temperatura" value={`${Math.round(weather.temperature)}°C`} />
-            <Info label="Viento" value={`${Math.round(weather.windSpeed)} km/h`} />
-            <Info label="Humedad" value={`${Math.round(weather.humidity)}%`} />
-            <Info label="Coordenadas" value={`${farmLocation.latitude}, ${farmLocation.longitude}`} />
-          </View>
-        ) : (
-          <Text style={[styles.bodyText, { color: colors.textSecondary }]}>Datos de clima no disponibles.</Text>
-        )}
-      </GlassCard>
+      {userCoords ? (
+        <WeatherAtLocation
+          title="Clima · Tu ubicación"
+          latitude={userCoords.latitude}
+          longitude={userCoords.longitude}
+          locationLabel="Tu ubicación"
+          userId={user?.id}
+        />
+      ) : null}
 
-      <GlassCard style={styles.card}>
-        <Text style={[styles.cardTitle, { color: colors.text }]}>Recomendación de vuelo</Text>
-        <Text style={[styles.bodyText, { color: colors.textSecondary }]}>
-          {recommendation?.reason || 'No hay recomendaciones disponibles.'}
-        </Text>
-      </GlassCard>
+      <WeatherAtLocation
+        title={`Clima · ${primaryClient?.name ?? 'Finca principal'}`}
+        latitude={farmLocation.latitude}
+        longitude={farmLocation.longitude}
+        locationLabel={primaryClient?.name ?? 'Finca principal'}
+        userId={user?.id}
+      />
+
+      {latestFlightRoute ? (
+        <WeatherAtLocation
+          title={`Clima · ${latestFlightRoute.label}`}
+          latitude={latestFlightRoute.point.latitude}
+          longitude={latestFlightRoute.point.longitude}
+          locationLabel={latestFlightRoute.label}
+          userId={user?.id}
+        />
+      ) : null}
     </TabScreenScroll>
   );
 
@@ -90,15 +146,6 @@ export function MapsScreen() {
         <Text style={[styles.statValue, { color: colors.text }]}>{value}</Text>
         <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{label}</Text>
       </GlassCard>
-    );
-  }
-
-  function Info({ label, value }: { label: string; value: string }) {
-    return (
-      <View style={styles.infoRow}>
-        <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{label}</Text>
-        <Text style={[styles.infoValue, { color: colors.text }]}>{value}</Text>
-      </View>
     );
   }
 }
@@ -118,9 +165,5 @@ const styles = StyleSheet.create({
   card: { gap: 12 },
   cardTitle: { fontSize: 18, fontWeight: '900' },
   bodyText: { fontSize: 14, lineHeight: 21, fontWeight: '700' },
-  infoRows: { gap: 10 },
-  infoRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 14 },
-  infoLabel: { fontSize: 13, fontWeight: '800' },
-  infoValue: { fontSize: 13, fontWeight: '900' },
   historyBtn: { borderWidth: 1, paddingVertical: 12, paddingHorizontal: 14 },
 });

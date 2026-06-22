@@ -1,10 +1,22 @@
-import { useMemo, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GlassCard } from '@components/ui/GlassCard';
 import { QuickModuleBackBar } from '@components/ui/QuickModuleBackBar';
 import { SectionHeader } from '@components/ui/SectionHeader';
 import { useAgroChat } from '@hooks/useAgroChat';
+import { useAuth } from '@hooks/useAuth';
+import { trackAIUsage } from '@services/analyticsService';
 import { useTheme } from '@theme/ThemeProvider';
 import type { AiRole } from "@services/aiPlatformTypes";
 
@@ -21,6 +33,8 @@ const SUGGESTIONS = [
 export function AgroChatScreen() {
   const { colors, radii } = useTheme();
   const chat = useAgroChat();
+  const { user } = useAuth();
+  const scrollRef = useRef<ScrollView>(null);
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<LocalMessage[]>([
@@ -34,17 +48,32 @@ export function AgroChatScreen() {
   const canSend = input.trim().length > 0 && !chat.isPending;
   const ordered = useMemo(() => messages, [messages]);
 
+  const scrollToBottom = () => {
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [ordered, chat.isPending]);
+
   const send = async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || chat.isPending) return;
 
     setMessages((prev) => [...prev, { id: `u-${Date.now()}`, role: 'user', text: trimmed }]);
     setInput('');
+    scrollToBottom();
 
     try {
       const response = await chat.mutateAsync({ conversationId, message: trimmed });
       setConversationId(response.conversationId);
-      setMessages((prev) => [...prev, { id: `a-${Date.now()}`, role: "assistant", text: response.message }]);
+      const reply = response.message?.trim() || 'No tengo una respuesta disponible en este momento.';
+      setMessages((prev) => [...prev, { id: `a-${Date.now()}`, role: 'assistant', text: reply }]);
+      if (user?.id) {
+        void trackAIUsage(user.id, 'chat', { conversationId: response.conversationId });
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'No se pudo completar la consulta.';
       setMessages((prev) => [...prev, { id: `e-${Date.now()}`, role: 'assistant', text: message }]);
@@ -53,7 +82,17 @@ export function AgroChatScreen() {
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView
+        style={styles.screen}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+      >
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        onContentSizeChange={scrollToBottom}
+      >
         <QuickModuleBackBar />
         <SectionHeader title="AgroChat" subtitle="Asistente inteligente contextual" />
 
@@ -84,6 +123,21 @@ export function AgroChatScreen() {
             </GlassCard>
           );
         })}
+
+        {chat.isPending ? (
+          <GlassCard
+            style={{
+              alignSelf: 'flex-start',
+              maxWidth: '92%',
+              backgroundColor: colors.surface,
+            }}
+          >
+            <View style={styles.typingRow}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={{ color: colors.onSurfaceSecondary, lineHeight: 20 }}>AgroNex AI está pensando...</Text>
+            </View>
+          </GlassCard>
+        ) : null}
       </ScrollView>
 
       <View style={[styles.composer, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
@@ -103,6 +157,7 @@ export function AgroChatScreen() {
           {chat.isPending ? <ActivityIndicator color="#fff" /> : <Text style={styles.sendText}>Enviar</Text>}
         </TouchableOpacity>
       </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -112,6 +167,7 @@ const styles = StyleSheet.create({
   content: { padding: 20, paddingBottom: 120, gap: 12 },
   suggestions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
   chip: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 },
+  typingRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   composer: { borderTopWidth: 1, padding: 12, gap: 10 },
   input: { minHeight: 44, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 10 },
   sendBtn: { minHeight: 44, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },

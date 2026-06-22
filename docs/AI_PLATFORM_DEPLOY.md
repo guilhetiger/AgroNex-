@@ -9,16 +9,21 @@ This guide deploys the AgroNex AI API (`apps/agronex-ai-api`) with:
 - Supabase project configured
 - Existing schema applied from `supabase/schema.sql`
 - AI schema applied from `supabase/ai_schema.sql`
-- OpenAI API key
+- Google Cloud project with Vertex AI API enabled and billing
+- Service account with `roles/aiplatform.user` (or equivalent)
 
 ## 2) Environment Variables
 
 Set these in your deployment platform:
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `OPENAI_API_KEY`
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY` (optional)
+- `GOOGLE_CLOUD_PROJECT`
+- `GOOGLE_CLOUD_LOCATION` (e.g. `us-central1`)
+- `GOOGLE_APPLICATION_CREDENTIALS` (path to JSON) **or** inject the service account JSON as a secret and set the env var at runtime
+
+For Vercel/Railway without a file path, store the service account JSON in a secret and write it to disk in build/start, or use workload identity where supported.
 
 ## 3) Deploy on Vercel
 
@@ -49,10 +54,11 @@ The mobile app sends Supabase JWT bearer tokens to AI routes.
 
 ## 6) Security Notes
 
-- Keep `OPENAI_API_KEY` server-side only.
+- Keep Vertex AI / GCP credentials server-side only.
 - Keep `SUPABASE_SERVICE_ROLE_KEY` server-side only.
 - All business data fetches should use user JWT via Supabase anon client + RLS.
-- Do not expose raw OpenAI calls in mobile code.
+- Do not expose Gemini/Vertex calls in mobile code.
+
 # AgroNex AI Platform — Despliegue
 
 ## Arquitectura
@@ -61,10 +67,10 @@ The mobile app sends Supabase JWT bearer tokens to AI routes.
 flowchart LR
   Expo[Expo App] -->|JWT Bearer| API[Next.js agronex-ai-api]
   API -->|anon + Authorization| SB[(Supabase RLS)]
-  API -->|gpt-4o-mini| OAI[OpenAI]
+  API -->|gemini-2.0-flash| Vertex[Vertex AI]
 ```
 
-**Regla de seguridad:** OpenAI solo en backend. Expo nunca recibe `OPENAI_API_KEY`.
+**Regla de seguridad:** Vertex AI solo en backend. Expo nunca recibe credenciales GCP.
 
 ---
 
@@ -88,7 +94,9 @@ No modifica tablas `clients`, `farms`, `flights`, `agrochemicals`, `expenses` ni
 |----------|-----------|-------------|
 | `SUPABASE_URL` | Sí | URL del proyecto Supabase |
 | `SUPABASE_ANON_KEY` | Sí | Anon/publishable key |
-| `OPENAI_API_KEY` | Sí | Clave OpenAI (solo servidor) |
+| `GOOGLE_CLOUD_PROJECT` | Sí | ID del proyecto GCP |
+| `GOOGLE_CLOUD_LOCATION` | Sí | Región Vertex (ej. `us-central1`) |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Sí* | Ruta al JSON de service account (*o ADC en GCP) |
 | `SUPABASE_SERVICE_ROLE_KEY` | No | Solo tareas admin opcionales |
 
 ### Expo (`.env.local` raíz)
@@ -116,7 +124,7 @@ cd apps/agronex-ai-api
 npm install
 ```
 
-Paquetes: `next`, `openai`, `@supabase/supabase-js`, `jspdf`, `zod`, `react`, `react-dom`.
+Paquetes: `next`, `@google/genai`, `@supabase/supabase-js`, `jspdf`, `zod`, `react`, `react-dom`.
 
 ---
 
@@ -126,6 +134,7 @@ Paquetes: `next`, `openai`, `@supabase/supabase-js`, `jspdf`, `zod`, `react`, `r
 # Terminal 1 — API
 cd apps/agronex-ai-api
 cp .env.example .env.local
+# Configurar GOOGLE_CLOUD_* y GOOGLE_APPLICATION_CREDENTIALS
 npm run dev
 
 # Terminal 2 — Expo
@@ -133,6 +142,8 @@ cd ../..
 # .env.local → EXPO_PUBLIC_AI_API_URL=http://localhost:3000
 npm start
 ```
+
+Alternativa local sin JSON: `gcloud auth application-default login` y omitir `GOOGLE_APPLICATION_CREDENTIALS` si ADC está disponible.
 
 ---
 
@@ -146,7 +157,9 @@ npm start
 6. Variables de entorno en Vercel:
    - `SUPABASE_URL`
    - `SUPABASE_ANON_KEY`
-   - `OPENAI_API_KEY`
+   - `GOOGLE_CLOUD_PROJECT`
+   - `GOOGLE_CLOUD_LOCATION`
+   - Service account JSON (secret → archivo o variable)
 7. Deploy → copiar URL (ej. `https://agronex-ai-api.vercel.app`)
 8. En Expo/EAS:
    ```
@@ -173,7 +186,9 @@ npx vercel --prod
 6. Variables:
    - `SUPABASE_URL`
    - `SUPABASE_ANON_KEY`
-   - `OPENAI_API_KEY`
+   - `GOOGLE_CLOUD_PROJECT`
+   - `GOOGLE_CLOUD_LOCATION`
+   - `GOOGLE_APPLICATION_CREDENTIALS` o JSON embebido
    - `PORT=3000` (Railway inyecta `PORT` automáticamente; Next.js `start -p $PORT` si se ajusta script)
 7. Generar dominio público → usar como `EXPO_PUBLIC_AI_API_URL`
 
@@ -202,14 +217,14 @@ Todas requieren header: `Authorization: Bearer <supabase_access_token>`.
 
 ---
 
-## 8. Costos OpenAI (referencia)
+## 8. Costos Vertex AI (referencia)
 
 | Tier | Usuarios/mes | Rango USD/mes |
 |------|--------------|---------------|
 | MVP | 50–200 | 80 – 450 |
 | Enterprise | 1000+ | 2,500 – 15,000+ |
 
-Modelo base: `gpt-4o-mini` (chat, reportes, OCR visión).
+Modelo base: `gemini-2.0-flash` (chat, reportes, OCR visión). Facturación vía GCP billing del proyecto.
 
 ---
 

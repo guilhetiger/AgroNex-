@@ -27,6 +27,8 @@ export type AppStackParamList = {
   ClientDetail: { clientId: string };
   FlightDetail: { flightId: string };
   GeoHistory: undefined;
+  SubscriptionManagement: undefined;
+  AnalyticsDashboard: undefined;
 };
 
 export type RootStackParamList = {

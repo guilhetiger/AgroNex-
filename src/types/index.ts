@@ -98,6 +98,20 @@ export type LanguageOption = 'es' | 'en' | 'pt';
 export type CurrencyOption = 'USD' | 'BOB' | 'BRL' | 'ARS' | 'EUR';
 export type CountryOption = 'BO' | 'US' | 'BR' | 'AR' | 'EU';
 
+export type SubscriptionPlan = 'free' | 'pro' | 'enterprise';
+export type SubscriptionStatus = 'active' | 'expired' | 'cancelled';
+
+export type Subscription = {
+  id: string;
+  user_id: string;
+  plan: SubscriptionPlan;
+  status: SubscriptionStatus;
+  started_at: string;
+  expires_at: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type LocalizationState = {
   language: LanguageOption;
   currency: CurrencyOption;
@@ -145,6 +159,54 @@ export type Database = {
         Insert: Omit<Expense, 'id' | 'created_at'>;
         Update: Partial<Omit<Expense, 'id' | 'created_at'>>;
       };
+      subscriptions: {
+        Row: Subscription;
+        Insert: {
+          user_id: string;
+          plan: SubscriptionPlan;
+          status: SubscriptionStatus;
+          started_at?: string;
+          expires_at: string;
+        };
+        Update: Partial<{
+          plan: SubscriptionPlan;
+          status: SubscriptionStatus;
+          started_at: string;
+          expires_at: string;
+        }>;
+      };
     };
+    Views: Record<string, never>;
+    Functions: {
+      ensure_user_subscription: {
+        Args: Record<string, never>;
+        Returns: Subscription;
+      };
+      admin_list_subscriptions: {
+        Args: Record<string, never>;
+        Returns: Array<Subscription & { email: string | null }>;
+      };
+      admin_analytics_summary: {
+        Args: Record<string, never>;
+        Returns: Array<{
+          active_users_7d: number;
+          active_users_30d: number;
+          total_ai_queries: number;
+          total_ocr_processed: number;
+          total_flights_created: number;
+          total_pdf_exports: number;
+          total_clients_created: number;
+        }>;
+      };
+      admin_analytics_top_features: {
+        Args: Record<string, never>;
+        Returns: Array<{ event_type: string; total: number; feature_rank: number }>;
+      };
+      admin_user_usage_stats: {
+        Args: { p_user_id: string };
+        Returns: Record<string, unknown>;
+      };
+    };
+    Enums: Record<string, never>;
   };
 };

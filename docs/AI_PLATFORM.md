@@ -6,7 +6,7 @@
 flowchart LR
   A[Expo React Native App] -->|JWT Supabase| B[Next.js AI API]
   B -->|RLS con anon + Authorization| C[(Supabase Postgres)]
-  B -->|gpt-4o-mini| D[OpenAI API]
+  B -->|gemini-2.0-flash (Vertex AI)| D[Google Vertex AI]
   C --> E[ai_conversations]
   C --> F[ai_reports]
   C --> G[ai_alerts]
@@ -23,7 +23,7 @@ supabase/
 
 apps/agronex-ai-api/
   src/lib/supabase/
-  src/lib/openai/
+  src/lib/gemini/
   src/lib/ai/
   src/lib/auth/
   src/app/api/ai/
@@ -55,9 +55,9 @@ src/
 - Cada tabla AI tiene `owner_id` y políticas RLS de `select/insert/update/delete` con `auth.uid() = owner_id`.
 - Las vistas AI usan `security_invoker = true` para respetar contexto de RLS del usuario autenticado.
 
-## Estimación de costos OpenAI
+## Estimación de costos Vertex AI (Gemini)
 
-> Supuestos de referencia: `gpt-4o-mini`, prompts compactos, contexto resumido.
+> Supuestos de referencia: `gemini-2.0-flash` en Vertex AI, prompts compactos, contexto resumido.
 
 ### MVP (50-200 usuarios activos/mes)
 

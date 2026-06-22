@@ -1,7 +1,7 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
@@ -10,6 +10,11 @@ import { GlassCard } from '@components/ui/GlassCard';
 import { SectionHeader } from '@components/ui/SectionHeader';
 import { useTheme } from '@theme/ThemeProvider';
 import { useCreateFlight, useFlights, useClients } from '@hooks/useData';
+import { useAuth } from '@hooks/useAuth';
+import { trackFlightUsage, trackWeatherUsage } from '@services/analyticsService';
+import { WeatherConditionsPanel } from '@components/weather/WeatherConditionsPanel';
+import { useWeatherBundle } from '@hooks/useWeather';
+import { parseRoutePolyline } from '@utils/geo';
 import type { AppStackParamList } from '@navigation/types';
 import { parseDecimalInput } from '@utils/number';
 import { useTabBarPadding } from '@hooks/useTabBarPadding';
@@ -21,6 +26,7 @@ export function FlightsScreen() {
   const { data: flights, isLoading: flightsLoading, error: flightsError, refetch: refetchFlights } = useFlights();
   const { data: clients } = useClients();
   const createFlightMutation = useCreateFlight();
+  const { user } = useAuth();
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState({
     client_id: '',
@@ -81,6 +87,29 @@ export function FlightsScreen() {
   const totalArea = flights?.reduce((sum, flight) => sum + flight.area_covered, 0) || 0;
   const totalMinutes = flights?.reduce((sum, flight) => sum + flight.duration, 0) || 0;
   const selectedClientId = form.client_id || clients?.[0]?.id || '';
+  const selectedClient = clients?.find((client) => client.id === selectedClientId);
+
+  const flightWeatherCoords = useMemo(() => {
+    const routePts = parseRoutePolyline(form.route_coordinates || null);
+    if (routePts?.[0]) {
+      return { lat: routePts[0].latitude, lon: routePts[0].longitude, label: form.farm_name || 'Ruta GPS' };
+    }
+    if (selectedClient?.latitude != null && selectedClient.longitude != null) {
+      return { lat: selectedClient.latitude, lon: selectedClient.longitude, label: selectedClient.name };
+    }
+    return null;
+  }, [form.route_coordinates, form.farm_name, selectedClient]);
+
+  const {
+    data: flightWeatherBundle,
+    isLoading: flightWeatherLoading,
+    error: flightWeatherError,
+  } = useWeatherBundle(flightWeatherCoords?.lat ?? 0, flightWeatherCoords?.lon ?? 0, {
+    enabled: isCreateOpen && !!flightWeatherCoords,
+    userId: user?.id,
+    locationLabel: flightWeatherCoords?.label,
+    notify: false,
+  });
 
   const captureGpsRoute = async () => {
     try {
@@ -108,7 +137,7 @@ export function FlightsScreen() {
 
   const handleCreateFlight = async () => {
     if (!selectedClientId) return;
-    await createFlightMutation.mutateAsync({
+    const created = await createFlightMutation.mutateAsync({
       client_id: selectedClientId,
       area_covered: parseDecimalInput(form.area_covered),
       duration: parseDecimalInput(form.duration),
@@ -124,6 +153,18 @@ export function FlightsScreen() {
       notes: form.notes.trim(),
       route: form.route_coordinates ? 'Ruta GPS registrada' : 'Ruta GPS pendiente',
     });
+    if (user?.id) {
+      void trackFlightUsage(user.id, 'created', { flightId: created.id });
+      void trackFlightUsage(user.id, 'completed', { flightId: created.id });
+      if (flightWeatherBundle?.spraying?.status === 'red') {
+        void trackWeatherUsage(user.id, 'unsafe_flight', {
+          flightId: created.id,
+          wind: flightWeatherBundle.spraying.windSpeedKmh,
+          rainRisk: flightWeatherBundle.spraying.rainRiskPercent,
+          ignoredWarning: true,
+        });
+      }
+    }
     setForm({
       client_id: '',
       farm_name: '',
@@ -255,7 +296,21 @@ export function FlightsScreen() {
               <FormTextInput label="Tiempo de vuelo min" value={form.duration} onChangeText={(value) => setForm((current) => ({ ...current, duration: value }))} keyboardType="decimal-pad" />
               <FormTextInput label="Dron utilizado" value={form.drone} onChangeText={(value) => setForm((current) => ({ ...current, drone: value }))} />
               <FormTextInput label="Piloto responsable" value={form.pilot} onChangeText={(value) => setForm((current) => ({ ...current, pilot: value }))} />
-              <FormTextInput label="Clima" value={form.weather} onChangeText={(value) => setForm((current) => ({ ...current, weather: value }))} />
+              {flightWeatherCoords ? (
+                <WeatherConditionsPanel
+                  title="Condiciones climáticas"
+                  weather={flightWeatherBundle?.current}
+                  spraying={flightWeatherBundle?.spraying}
+                  isLoading={flightWeatherLoading}
+                  errorMessage={flightWeatherError instanceof Error ? flightWeatherError.message : null}
+                  compact
+                />
+              ) : (
+                <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+                  Captura la ruta GPS o selecciona un cliente con coordenadas para validar el clima.
+                </Text>
+              )}
+              <FormTextInput label="Clima" value={form.weather} onChangeText={(value) => setForm((current) => ({ ...current, weather: value }))} placeholder="Opcional · se puede autocompletar" />
               <FormTextInput label="Viento" value={form.wind} onChangeText={(value) => setForm((current) => ({ ...current, wind: value }))} />
               <FormTextInput label="Batería utilizada" value={form.battery_usage} onChangeText={(value) => setForm((current) => ({ ...current, battery_usage: value }))} />
               <FormTextInput label="Consumo" value={form.consumption} onChangeText={(value) => setForm((current) => ({ ...current, consumption: value }))} />
