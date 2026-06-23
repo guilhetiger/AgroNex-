@@ -1,8 +1,23 @@
+import fs from "fs";
 import { ApiError, GoogleGenAI } from "@google/genai";
 
 export const GEMINI_MODEL = "gemini-2.5-flash";
 
 let client: GoogleGenAI | null = null;
+let credentialsInitialized = false;
+
+function ensureVertexCredentials() {
+  if (credentialsInitialized) return;
+  credentialsInitialized = true;
+
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) return;
+
+  const serviceAccountJson = process.env.GCP_SA_JSON;
+  if (!serviceAccountJson) return;
+
+  fs.writeFileSync("/tmp/gcp-sa.json", serviceAccountJson);
+  process.env.GOOGLE_APPLICATION_CREDENTIALS = "/tmp/gcp-sa.json";
+}
 
 export class GeminiQuotaError extends Error {
   constructor(message = "Cuota de Gemini agotada. Intenta de nuevo mas tarde.") {
@@ -48,6 +63,7 @@ export function isVertexAuthError(error: unknown): boolean {
 }
 
 export function getGeminiClient() {
+  ensureVertexCredentials();
   const { project, location } = getVertexConfig();
 
   if (!client) {

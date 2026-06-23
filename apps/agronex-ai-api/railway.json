@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "echo \"SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ6dnNtbHNjc2VlbXhzcmJ5a3dhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzNjE2MjQsImV4cCI6MjA5NTkzNzYyNH0.guxc3UwynVWPtjghsHKZojD7LCjYfHMuI28yYDtTUnA\" > .env.production && npx next start -p $PORT -H 0.0.0.0",
+    "startCommand": "echo \"SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ6dnNtbHNjc2VlbXhzcmJ5a3dhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzNjE2MjQsImV4cCI6MjA5NTkzNzYyNH0.guxc3UwynVWPtjghsHKZojD7LCjYfHMuI28yYDtTUnA\" > .env.production && echo \"GCP_SA_JSON=$RAW_GCP_SA_JSON\" >> .env.production && npx next start -p $PORT -H 0.0.0.0",
     "restartPolicyType": "ON_FAILURE"
   }
 }
