@@ -1,4 +1,0 @@
-{
-  "regional": true,
-  "startCommand": "cd apps/agronex-ai-api && npx next start -p $PORT -H 0.0.0.0"
-}
