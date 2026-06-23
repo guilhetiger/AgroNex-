@@ -1,42 +1,26 @@
 {
   "cli": {
-    "version": ">= 3.0.0",
-    "appVersionSource": "local"
+    "version": ">= 10.0.0"
   },
   "build": {
     "development": {
-      "developmentClient": false,
-      "distribution": "internal",
-      "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "https://vzvsmlscseemxsrbykwa.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_ALdtOIDPsNshHFsaFyiPaA_7ZMZU_cN",
-        "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "3530063422-d247osj1afe0hprnitqcgo0ol4mt352k.apps.googleusercontent.com"
-      }
+      "developmentClient": true,
+      "distribution": "internal"
     },
     "preview": {
       "distribution": "internal",
       "env": {
+        "EXPO_PUBLIC_AI_API_URL": "https://agronex-production-a195.up.railway.app",
         "EXPO_PUBLIC_SUPABASE_URL": "https://vzvsmlscseemxsrbykwa.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_ALdtOIDPsNshHFsaFyiPaA_7ZMZU_cN",
+        "EXPO_PUBLIC_WEATHER_API_KEY": "06407f5e0b79743012cee81ba0f43002",
         "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "3530063422-d247osj1afe0hprnitqcgo0ol4mt352k.apps.googleusercontent.com"
-      },
-      "ios": {
-        "simulator": true
       },
       "android": {
         "buildType": "apk"
       }
     },
-    "production": {
-      "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "https://vzvsmlscseemxsrbykwa.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_ALdtOIDPsNshHFsaFyiPaA_7ZMZU_cN",
-        "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "3530063422-d247osj1afe0hprnitqcgo0ol4mt352k.apps.googleusercontent.com"
-      },
-      "android": {
-        "buildType": "app-bundle"
-      }
-    }
+    "production": {}
   },
   "submit": {
     "production": {}

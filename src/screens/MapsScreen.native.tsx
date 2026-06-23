@@ -1,10 +1,9 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import Constants from 'expo-constants';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMemo } from 'react';
 import { Platform, StyleSheet, View, Text, TouchableOpacity } from 'react-native';
-import MapView, { Marker, Polygon, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, Polygon, Polyline, UrlTile } from 'react-native-maps';
 import { GlassCard } from '@components/ui/GlassCard';
 import { SectionHeader } from '@components/ui/SectionHeader';
 import { TabScreenScroll } from '@components/ui/TabScreenScroll';
@@ -21,8 +20,8 @@ type Coordinate = {
   longitude: number;
 };
 
-const extra = (Constants.expoConfig?.extra ?? {}) as Record<string, string | undefined>;
-const androidMapsKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY || extra.expoPublicGoogleMapsAndroidApiKey || '';
+const OSM_TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+const OSM_TILE_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 30;
 
 function parseCoordinates(value: unknown): Coordinate[] {
   try {
@@ -94,7 +93,6 @@ export function MapsScreen() {
 
   const totalArea = flights?.reduce((sum, flight) => sum + flight.area_covered, 0) || 0;
   const totalMinutes = flights?.reduce((sum, flight) => sum + flight.duration, 0) || 0;
-  const canRenderNativeMap = Platform.OS !== 'android' || !!androidMapsKey;
   const clientMarkers = useMemo(
     () => (clients || []).filter((client) => Number.isFinite(client.latitude) && Number.isFinite(client.longitude)),
     [clients]
@@ -113,19 +111,27 @@ export function MapsScreen() {
       <SectionHeader title="Mapas" subtitle="GPS, rutas y zonas atendidas" />
 
       <View style={[styles.mapPreview, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        {canRenderNativeMap ? (
-          <MapView
-            provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-            style={styles.nativeMap}
-            initialRegion={{
-              ...farmLocation,
-              latitudeDelta: 0.08,
-              longitudeDelta: 0.08,
-            }}
-            showsUserLocation
-            showsMyLocationButton
-          >
-            {clientMarkers.map((client) => (
+        <MapView
+          provider={null}
+          style={styles.nativeMap}
+          initialRegion={{
+            ...farmLocation,
+            latitudeDelta: 0.08,
+            longitudeDelta: 0.08,
+          }}
+          showsUserLocation={true}
+          showsMyLocationButton
+        >
+          <UrlTile
+            urlTemplate={OSM_TILE_URL}
+            maximumZ={19}
+            tileSize={256}
+            shouldReplaceMapContent={true}
+            {...(Platform.OS === 'android'
+              ? { offlineMode: true, tileCacheMaxAge: OSM_TILE_CACHE_MAX_AGE_MS }
+              : {})}
+          />
+          {clientMarkers.map((client) => (
               <Marker
                 key={client.id}
                 coordinate={{ latitude: client.latitude!, longitude: client.longitude! }}
@@ -142,22 +148,13 @@ export function MapsScreen() {
                 strokeWidth={2}
               />
             ))}
-            {flightRoutes.map((route) => (
-              <Polyline key={route.id} coordinates={route.coordinates} strokeColor={colors.accent} strokeWidth={4} />
-            ))}
-          </MapView>
-        ) : (
-          <View style={[styles.mapGrid, { borderColor: colors.border }]}>
-            <View style={[styles.zone, { backgroundColor: colors.primary + '20', borderColor: colors.primary }]} />
-            <View style={[styles.route, { backgroundColor: colors.accent }]} />
-            <View style={[styles.pin, { backgroundColor: colors.primary }]} />
-          </View>
-        )}
-        <Text style={[styles.previewTitle, { color: colors.text }]}>{canRenderNativeMap ? 'Mapa operativo' : 'Mapa nativo pendiente de API key'}</Text>
+          {flightRoutes.map((route) => (
+            <Polyline key={route.id} coordinates={route.coordinates} strokeColor={colors.accent} strokeWidth={4} />
+          ))}
+        </MapView>
+        <Text style={[styles.previewTitle, { color: colors.text }]}>Mapa operativo</Text>
         <Text style={[styles.previewText, { color: colors.textSecondary }]}>
-          {canRenderNativeMap
-            ? 'Clientes, polígonos y rutas de vuelo se muestran sobre el mapa nativo.'
-            : 'Configura EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY o GOOGLE_MAPS_ANDROID_API_KEY para activar Google Maps en Android.'}
+          Cartografía OpenStreetMap con caché de teselas. El GPS en tiempo real funciona sin conexión; las teselas ya visitadas se reutilizan offline.
         </Text>
       </View>
 
