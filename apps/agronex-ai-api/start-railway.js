@@ -20,14 +20,15 @@ try {
   console.error('❌ Error fatal escribiendo las credenciales de GCP:', err.message);
 }
 
-// Intentar arrancar Next.js capturando errores de red o del framework
+// Forzar la lectura estricta y dinámica del PORT asignado por Railway
+const assignedPort = process.env.PORT || '3000';
+
+console.log(`📡 Mapeando Next.js estrictamente en el puerto de producción: ${assignedPort}`);
+
 try {
-  const port = process.env.PORT || 3000;
-  console.log(`📡 Levantando Next.js en el puerto ${port} bajo HOST 0.0.0.0...`);
-  
-  // Usamos next start directo para evitar intermediarios de npm run start
-  execSync(`npx next start -p ${port} -H 0.0.0.0`, { stdio: 'inherit' });
+  // Ejecutar Next.js forzando el puerto asignado y el host global 0.0.0.0
+  execSync(`npx next start -p ${assignedPort} -H 0.0.0.0`, { stdio: 'inherit' });
 } catch (execErr) {
-  console.error('❌ CRASH CRÍTICO en el proceso de Next.js:', execErr.message);
+  console.error('❌ CRASH CRÍTICO al levantar Next.js:', execErr.message);
   process.exit(1);
 }
