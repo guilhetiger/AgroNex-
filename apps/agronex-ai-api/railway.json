@@ -5,7 +5,6 @@
     "dockerfilePath": "apps/agronex-ai-api/Dockerfile"
   },
   "deploy": {
-    "startCommand": "sh run-prod.sh",
     "restartPolicyType": "ON_FAILURE"
   }
 }

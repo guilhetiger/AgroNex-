@@ -2,6 +2,7 @@
 // Secrets (SUPABASE_*, GCP_*) are read at runtime via process.env in API routes only.
 // Do not add an `env` block here — it would inline values into the build bundle.
 const nextConfig = {
+  output: "standalone",
   reactStrictMode: true,
   experimental: {
     serverActions: {
