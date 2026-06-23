@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "node -e \"require('fs').writeFileSync('/tmp/gcp-sa.json', process.env.GCP_SA_JSON)\" && export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-sa.json && npm run start",
+    "startCommand": "node start-railway.js",
     "restartPolicyType": "ON_FAILURE"
   }
 }
