@@ -6,16 +6,49 @@ export const GEMINI_MODEL = "gemini-2.5-flash";
 let client: GoogleGenAI | null = null;
 let credentialsInitialized = false;
 
+type GcpServiceAccountCredentials = {
+  private_key?: string;
+  [key: string]: unknown;
+};
+
+function parseGcpServiceAccountJson(): GcpServiceAccountCredentials | null {
+  let gcpCredentials: GcpServiceAccountCredentials = {};
+
+  try {
+    if (process.env.GCP_SA_JSON) {
+      let cleanJsonString = process.env.GCP_SA_JSON.trim();
+
+      if (cleanJsonString.startsWith("'") && cleanJsonString.endsWith("'")) {
+        cleanJsonString = cleanJsonString.slice(1, -1);
+      }
+
+      gcpCredentials = JSON.parse(cleanJsonString) as GcpServiceAccountCredentials;
+
+      if (gcpCredentials.private_key) {
+        gcpCredentials.private_key = gcpCredentials.private_key.replace(/\\n/g, "\n");
+      }
+    } else {
+      console.warn("Advertencia: GCP_SA_JSON no está definida en las variables de entorno.");
+      return null;
+    }
+  } catch (error) {
+    console.error("Error crítico y controlado al parsear GCP_SA_JSON:", error);
+    return null;
+  }
+
+  return gcpCredentials;
+}
+
 function ensureVertexCredentials() {
   if (credentialsInitialized) return;
   credentialsInitialized = true;
 
   if (process.env.GOOGLE_APPLICATION_CREDENTIALS) return;
 
-  const serviceAccountJson = process.env.GCP_SA_JSON;
-  if (!serviceAccountJson) return;
+  const gcpCredentials = parseGcpServiceAccountJson();
+  if (!gcpCredentials) return;
 
-  fs.writeFileSync("/tmp/gcp-sa.json", serviceAccountJson);
+  fs.writeFileSync("/tmp/gcp-sa.json", JSON.stringify(gcpCredentials));
   process.env.GOOGLE_APPLICATION_CREDENTIALS = "/tmp/gcp-sa.json";
 }
 
