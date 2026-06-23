@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "sh start.sh",
+    "startCommand": "sh run-prod.sh",
     "restartPolicyType": "ON_FAILURE"
   }
 }
