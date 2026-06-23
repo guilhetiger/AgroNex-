@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "echo \"SUPABASE_ANON_KEY=$RAW_SUPABASE_KEY\" > .env.production && echo \"GCP_SA_JSON=$RAW_GCP_SA_JSON\" >> .env.production && npx next start -p $PORT -H 0.0.0.0",
+    "startCommand": "sh start.sh",
     "restartPolicyType": "ON_FAILURE"
   }
 }
