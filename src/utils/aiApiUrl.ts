@@ -1,6 +1,8 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
+const PRODUCTION_AI_API_BASE_URL = 'https://agronex-production-a195.up.railway.app';
+
 function trimTrailingSlash(url: string) {
   return url.replace(/\/+$/, '');
 }
@@ -38,9 +40,7 @@ export function getAiApiBaseUrl(): string {
   const envUrl = trimTrailingSlash(process.env.EXPO_PUBLIC_AI_API_URL || '');
   const extra = (Constants.expoConfig?.extra ?? {}) as Record<string, string | undefined>;
   const extraUrl = trimTrailingSlash(extra.expoPublicAiApiUrl || '');
-  const configured = envUrl || extraUrl;
-
-  if (!configured) return '';
+  const configured = envUrl || extraUrl || PRODUCTION_AI_API_BASE_URL;
 
   if (__DEV__ && /localhost|127\.0\.0\.1/.test(configured)) {
     return resolveDevLocalhost(configured);

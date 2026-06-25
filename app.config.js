@@ -47,6 +47,8 @@ module.exports = ({ config }) => ({
     expoPublicSupabaseUrl: env.EXPO_PUBLIC_SUPABASE_URL || '',
     expoPublicSupabaseAnonKey: env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '',
     expoPublicGoogleClientId: env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || '',
+    expoPublicAiApiUrl:
+      env.EXPO_PUBLIC_AI_API_URL || 'https://agronex-production-a195.up.railway.app',
     expoPublicGoogleMapsAndroidApiKey: googleMapsAndroidApiKey,
     eas: {
       projectId: 'c707e6fe-11cd-45e3-930d-c90ae751755b',

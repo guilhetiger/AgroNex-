@@ -9,6 +9,18 @@ const bodySchema = z.object({
   message: z.string().min(1).max(4000)
 });
 
+function logChatError(phase: string, error: unknown) {
+  const base =
+    error instanceof Error
+      ? { name: error.name, message: error.message, stack: error.stack }
+      : { raw: String(error) };
+  const api =
+    error && typeof error === "object" && "status" in error
+      ? { status: (error as { status?: number }).status }
+      : {};
+  console.error(`[AI][chat][${phase}]`, { ...base, ...api });
+}
+
 export async function POST(request: Request) {
   console.log('[AI] Request received');
   try {
@@ -67,6 +79,7 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof Response) return error;
     if (error instanceof GeminiQuotaError) {
+      logChatError("quota", error);
       return Response.json({ error: error.message }, { status: 503 });
     }
     if (error instanceof Error && error.message === "Missing GOOGLE_CLOUD_PROJECT") {
@@ -76,6 +89,7 @@ export async function POST(request: Request) {
       );
     }
     if (isVertexAuthError(error)) {
+      logChatError("vertex_auth", error);
       return Response.json(
         {
           error:
@@ -87,8 +101,7 @@ export async function POST(request: Request) {
     if (error instanceof z.ZodError) {
       return Response.json({ error: "Body invalido.", details: error.flatten() }, { status: 400 });
     }
-    console.error('[AI] Full error:', error);
-    console.error('[AI] Stack:', error instanceof Error ? error.stack : undefined);
+    logChatError("unhandled", error);
     return Response.json({ error: "Error generando respuesta AI." }, { status: 500 });
   }
 }

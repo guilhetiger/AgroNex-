@@ -43,6 +43,11 @@ function ensureVertexCredentials() {
   if (credentialsInitialized) return;
   credentialsInitialized = true;
 
+  console.info("[Gemini] credentials init", {
+    hasGcpSaJson: Boolean(process.env.GCP_SA_JSON),
+    hasGoogleApplicationCredentials: Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS)
+  });
+
   if (process.env.GOOGLE_APPLICATION_CREDENTIALS) return;
 
   const gcpCredentials = parseGcpServiceAccountJson();
@@ -184,6 +189,14 @@ export async function generateText(options: {
       usage: mapUsageMetadata(response.usageMetadata)
     };
   } catch (error) {
+    console.error("[Gemini] generateContent failed", {
+      message: error instanceof Error ? error.message : String(error),
+      status: error instanceof ApiError ? error.status : undefined,
+      hasGcpSaJson: Boolean(process.env.GCP_SA_JSON),
+      hasGoogleApplicationCredentials: Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS),
+      project: process.env.GOOGLE_CLOUD_PROJECT ?? null,
+      location: process.env.GOOGLE_CLOUD_LOCATION ?? process.env.GOOGLE_LOCATION ?? "us-central1"
+    });
     assertGeminiResponse(error);
   }
 }
